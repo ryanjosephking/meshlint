@@ -14,11 +14,11 @@ LINTS = [
     'label': 'Ngons',
     'default': True
   },
-#  {
-#    'symbol': 'interior_faces',
-#    'label': 'Interior Faces',
-#    'default': True
-#  },
+  {
+    'symbol': 'interior_faces',
+    'label': 'Interior Faces',
+    'default': True
+  },
   {
     'symbol': 'nonmanifold',
     'label': 'Nonmanifold Elements',
@@ -94,6 +94,7 @@ class MeshLintSelector(bpy.types.Operator):
             bad = method(self, b)
             for elemtype in 'verts', 'edges', 'faces':
                 indices = bad.get(elemtype, [])
+                # maybe filter out hidden elements?
                 print("%s - %s - %s" % (method_name, elemtype, len(indices)))
                 bmseq = getattr(b, elemtype)
                 for i in indices:
@@ -138,10 +139,11 @@ class MeshLintSelector(bpy.types.Operator):
                 bad['faces'].append(f.index)
         return bad
 
-    def check_interior_faces(self, b):
-        raise 'notreached'
-        # Find out how this is implemented:
-        bpy.ops.mesh.select_interior_faces()
+    def check_interior_faces(self, b): # translated from editmesh_select.c
+        bad = { 'faces': [] }
+        for f in b.faces:
+            if not any(3 > len(e.link_faces) for e in f.edges):
+                bad['faces'].append(f.index)
         return bad
 
     def check_sixplus_poles(self, b):
