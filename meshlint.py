@@ -1,8 +1,21 @@
+bl_info = {
+    'name': 'MeshLint: Scrutinize Mesh Quality',
+    'author': 'rking',
+    'version': (0, 2),
+    'blender': (2, 6, 3),
+    'location': 'Object Data properties > MeshLint',
+    'description': 'Check a mesh for: Tris / Ngons / Nonmanifoldness / etc.',
+    'warning': '',
+    'wiki_url': '',
+    'tracker_url': '',
+    'category': 'Mesh'
+}
+
 import bpy
 import bmesh
 import re
 
-SUBPANEL_LABEL = 'Mesh Lint'
+SUBPANEL_LABEL = 'MeshLint'
 
 LINTS = [
   {
@@ -30,11 +43,11 @@ LINTS = [
     'label': '6+-edge Poles',
     'default': False
   },
-  # 'unnamed_object'
+
+  # Plus 'Default Name'
+
   # [Your great new idea here] -> Tell me about it: rking@panoptic.com
 ]
-
-LINTS_LIST = ' / '.join(lint['label'] for lint in LINTS)
 
 N_A_STR = '(N/A)'
 TBD_STR = '...'
@@ -51,18 +64,6 @@ for lint in LINTS:
         bpy.props.BoolProperty(default=lint['default'])
     )
 
-bl_info = {
-    'name': 'Mesh Lint: Scrutinize Mesh Quality',
-    'author': 'rking',
-    'version': (1, 0),
-    'blender': (2, 6, 3),
-    'location': 'Object Data properties > ' + SUBPANEL_LABEL,
-    'description': 'Check a mesh for: ' + LINTS_LIST,
-    'warning': '',
-    'wiki_url': '', # TODO
-    'tracker_url': '', # TODO
-    'category': 'Mesh' }
-
 def should_show(context):
     obj = context.active_object 
     return obj and 'MESH' == obj.type
@@ -71,7 +72,7 @@ def should_show(context):
 class MeshLintSelector(bpy.types.Operator):
     "Uncheck boxes below to prevent those checks from running."
     bl_idname = 'meshlint.select'
-    bl_label = "Mesh Lint"
+    bl_label = "MeshLint"
 
     @classmethod
     def poll(cls, context):
@@ -188,7 +189,7 @@ class MeshLintControl(bpy.types.Panel):
             row.label(label, icon=reward)
         if self.has_bad_name(active.name):
             col.row().label(
-                '...and you should think about renaming "%s"' % active.name
+                '...and "%s" is not a great name, BTW.' % active.name
             )
 
     def has_bad_name(self, name):
