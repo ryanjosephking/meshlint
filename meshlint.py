@@ -1,5 +1,6 @@
 import bpy
 import bmesh
+import re
 
 SUBPANEL_LABEL = 'Mesh Lint'
 
@@ -95,7 +96,6 @@ class MeshLintSelector(bpy.types.Operator):
             for elemtype in 'verts', 'edges', 'faces':
                 indices = bad.get(elemtype, [])
                 # maybe filter out hidden elements?
-                print("%s - %s - %s" % (method_name, elemtype, len(indices)))
                 bmseq = getattr(b, elemtype)
                 for i in indices:
                     bmseq[i].select = True
@@ -186,6 +186,40 @@ class MeshLintControl(bpy.types.Panel):
             row = col.row()
             row.prop(context.scene, lint['check_prop'], text='')
             row.label(label, icon=reward)
+        if self.has_bad_name(active.name):
+            col.row().label(
+                '...and you should think about renaming "%s"' % active.name
+            )
+
+    def has_bad_name(self, name):
+        default_names = [
+            'BezierCircle',
+            'BezierCurve',
+            'Circle',
+            'Cone',
+            'Cube',
+            'CurvePath',
+            'Cylinder',
+            'Grid',
+            'Icosphere',
+            'Mball',
+            'Monkey',
+            'NurbsCircle',
+            'NurbsCurve',
+            'NurbsPath',
+            'Plane',
+            'Sphere',
+            'Surface',
+            'SurfCircle',
+            'SurfCurve',
+            'SurfCylinder',
+            'SurfPatch',
+            'SurfSphere',
+            'SurfTorus',
+            'Text',
+        ]
+        pat = '(%s).?\d*$' % '|'.join(default_names)
+        return re.match(pat, name)
            
 
 def register():
