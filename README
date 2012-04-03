@@ -8,5 +8,6 @@ bottom, where you can have it point out:
   - Tris: Evil.
   - Ngons: Also pretty bad.
   - Interior Faces: Faces spanning inside the mesh that cause confusing
-    effects with Subsurf and Edge Loops.
+      effects with Subsurf and Edge Loops.
+  - 6+-Poles: Verts with 6 or more edges (check disabled by default).
   - ...more to come.

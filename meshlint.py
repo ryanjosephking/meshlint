@@ -4,11 +4,26 @@ import bmesh
 SUBPANEL_LABEL = 'Mesh Lint'
 
 LINTS = {
-  'nonmanifold': { 'label': 'Nonmanifold Elements' },
-  'tris': { 'label': 'Tris' },
-  'ngons': { 'label': 'Ngons' },
-  'interior_faces': { 'label': 'Interior Faces' },
-  # 'six_poles': { 'label': '6+-edge Poles', 'default': False },
+  'nonmanifold': {
+    'label': 'Nonmanifold Elements',
+    'default': True
+  },
+  'tris': {
+    'label': 'Tris',
+    'default': True
+  },
+  'ngons': {
+    'label': 'Ngons',
+    'default': True
+  },
+  'interior_faces': {
+    'label': 'Interior Faces',
+    'default': True
+  },
+  'sixplus_poles': {
+    'label': '6+-edge Poles',
+    'default': False
+  },
   # 'unnamed_object'
   # [Your great new idea here] -> Tell me about it: rking@panoptic.com
 }
@@ -17,14 +32,14 @@ LINTS_LIST = ' / '.join(lint['label'] for lint in LINTS.values())
 
 for sym in LINTS:
     lint = LINTS[sym]
-    lint['count'] = '?'
+    lint['count'] = '...'
     prop = 'meshlint_check_' + sym
     lint['check_prop'] = prop
     'meshlint_check_' + sym
     setattr(
         bpy.types.Scene,
         prop,
-        bpy.props.BoolProperty(default=True)
+        bpy.props.BoolProperty(default=lint['default'])
     )
 
 bl_info = {
@@ -56,12 +71,13 @@ class MeshLintSelector(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
-        self.reset_counts()
         self.ensure_edit_mode()
+        self.select_none()
         b = bmesh.from_edit_mesh(obj.data)
-        self.select_none(b)
+        self.enable_anything_select_mode(b)
         for sym in LINTS:
             lint = LINTS[sym]
+            lint['count'] = 0
             should_check = getattr(context.scene, lint['check_prop'])
             if should_check:
                 method_name = 'check_' + sym
@@ -72,18 +88,15 @@ class MeshLintSelector(bpy.types.Operator):
         context.area.tag_redraw()
         return {'FINISHED'}
 
-    def reset_counts(self):
-        for sym in LINTS:
-            LINTS[sym]['count'] = 0
-
     def ensure_edit_mode(self):
         if 'EDIT_MESH' != bpy.context.mode:
             bpy.ops.object.editmode_toggle()
 
-    def select_none(self, b):
-        for elemtype in 'verts', 'edges', 'faces':
-            for elem in getattr(b, elemtype):
-                elem.select = False
+    def enable_anything_select_mode(self, b):
+        b.select_mode = {'VERT', 'EDGE', 'FACE'}
+
+    def select_none(self):
+        bpy.ops.mesh.select_all(action='DESELECT')
 
     def check_nonmanifold(self, b):
         for elemtype in 'verts', 'edges':
@@ -91,7 +104,7 @@ class MeshLintSelector(bpy.types.Operator):
                 if not elem.is_manifold:
                     elem.select = True
                     LINTS['nonmanifold']['count'] += 1
-        print("TODO: Deselect mirror-plane verts.")
+        print("MeshLint TODO: Deselect mirror-plane verts.")
 
     def check_tris(self, b):
         for f in b.faces:
@@ -108,6 +121,12 @@ class MeshLintSelector(bpy.types.Operator):
     def check_interior_faces(self, b):
         bpy.ops.mesh.select_interior_faces()
         # ...that one was easy.
+
+    def check_sixplus_poles(self, b):
+        for v in b.verts:
+            if 5 < len(v.link_edges):
+                v.select = True
+                LINTS['sixplus_poles']['count'] += 1
                 
 
 class MeshLintControl(bpy.types.Panel):
