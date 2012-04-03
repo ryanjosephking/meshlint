@@ -3,36 +3,44 @@ import bmesh
 
 SUBPANEL_LABEL = 'Mesh Lint'
 
-LINTS = {
-  'nonmanifold': {
-    'label': 'Nonmanifold Elements',
-    'default': True
-  },
-  'tris': {
+LINTS = [
+  {
+    'symbol': 'tris',
     'label': 'Tris',
     'default': True
   },
-  'ngons': {
+  {
+    'symbol': 'ngons',
     'label': 'Ngons',
     'default': True
   },
-  'interior_faces': {
-    'label': 'Interior Faces',
+#  {
+#    'symbol': 'interior_faces',
+#    'label': 'Interior Faces',
+#    'default': True
+#  },
+  {
+    'symbol': 'nonmanifold',
+    'label': 'Nonmanifold Elements',
     'default': True
   },
-  'sixplus_poles': {
+  {
+    'symbol': 'sixplus_poles',
     'label': '6+-edge Poles',
     'default': False
   },
   # 'unnamed_object'
   # [Your great new idea here] -> Tell me about it: rking@panoptic.com
-}
+]
 
-LINTS_LIST = ' / '.join(lint['label'] for lint in LINTS.values())
+LINTS_LIST = ' / '.join(lint['label'] for lint in LINTS)
 
-for sym in LINTS:
-    lint = LINTS[sym]
-    lint['count'] = '...'
+N_A_STR = '(N/A)'
+TBD_STR = '...'
+
+for lint in LINTS:
+    sym = lint['symbol']
+    lint['count'] = TBD_STR
     prop = 'meshlint_check_' + sym
     lint['check_prop'] = prop
     'meshlint_check_' + sym
@@ -54,7 +62,6 @@ bl_info = {
     'tracker_url': '', # TODO
     'category': 'Mesh' }
 
-
 def should_show(context):
     obj = context.active_object 
     return obj and 'MESH' == obj.type
@@ -75,15 +82,23 @@ class MeshLintSelector(bpy.types.Operator):
         self.select_none()
         b = bmesh.from_edit_mesh(obj.data)
         self.enable_anything_select_mode(b)
-        for sym in LINTS:
-            lint = LINTS[sym]
-            lint['count'] = 0
+        for lint in LINTS:
+            sym = lint['symbol']
             should_check = getattr(context.scene, lint['check_prop'])
-            if should_check:
-                method_name = 'check_' + sym
-                getattr(type(self), method_name)(self, b)
-            else:
-                lint['count'] = '(N/A)'
+            if not should_check:
+                lint['count'] = N_A_STR
+                continue
+            lint['count'] = 0
+            method_name = 'check_' + sym
+            method = getattr(type(self), method_name)
+            bad = method(self, b)
+            for elemtype in 'verts', 'edges', 'faces':
+                indices = bad.get(elemtype, [])
+                print("%s - %s - %s" % (method_name, elemtype, len(indices)))
+                bmseq = getattr(b, elemtype)
+                for i in indices:
+                    bmseq[i].select = True
+                lint['count'] += len(indices)
 
         context.area.tag_redraw()
         return {'FINISHED'}
@@ -99,34 +114,42 @@ class MeshLintSelector(bpy.types.Operator):
         bpy.ops.mesh.select_all(action='DESELECT')
 
     def check_nonmanifold(self, b):
+        bad = {}
         for elemtype in 'verts', 'edges':
+            bad[elemtype] = []
             for elem in getattr(b, elemtype):
                 if not elem.is_manifold:
-                    elem.select = True
-                    LINTS['nonmanifold']['count'] += 1
+                    bad[elemtype].append(elem.index)
         print("MeshLint TODO: Deselect mirror-plane verts.")
+        # ...anybody wanna tackle Mirrors with an Object Offset?
+        return bad
 
     def check_tris(self, b):
+        bad = { 'faces': [] }
         for f in b.faces:
             if 3 == len(f.verts):
-                f.select = True
-                LINTS['tris']['count'] += 1
+                bad['faces'].append(f.index)
+        return bad
 
     def check_ngons(self, b):
+        bad = { 'faces': [] }
         for f in b.faces:
             if 4 < len(f.verts):
-                f.select = True
-                LINTS['ngons']['count'] += 1
+                bad['faces'].append(f.index)
+        return bad
 
     def check_interior_faces(self, b):
+        raise 'notreached'
+        # Find out how this is implemented:
         bpy.ops.mesh.select_interior_faces()
-        # ...that one was easy.
+        return bad
 
     def check_sixplus_poles(self, b):
+        bad = { 'verts': [] }
         for v in b.verts:
             if 5 < len(v.link_edges):
-                v.select = True
-                LINTS['sixplus_poles']['count'] += 1
+                bad['verts'].append(v.index)
+        return bad
                 
 
 class MeshLintControl(bpy.types.Panel):
@@ -139,24 +162,29 @@ class MeshLintControl(bpy.types.Panel):
         active = context.active_object
         layout = self.layout
         col = layout.column()
-        col.operator(
-            'meshlint.select', text='Select Lint', icon='RNA'
-        )
+        col.operator('meshlint.select', text='Select Lint', icon='EDITMODE_HLT')
+        # col.operator('meshlint.enliven', text='Continuous', icon='PLAY')
+        # icon='PAUSE'
+
         if not should_show(context):
             return
-        for sym in LINTS:
-            f = LINTS[sym]
-            col.prop(context.scene, f['check_prop'], text=self.make_label(f))
-
-    def make_label(self, feature):
-        count = feature['count']
-        label = str(count) + ' ' + feature['label']
-        if 1 == count:
-            label = label.rstrip('s')
-        elif 0 == count:
-            label += '!'
-        return label
-            
+        for lint in LINTS:
+            count = lint['count']
+            if count in (TBD_STR, N_A_STR):
+                label = str(count) + ' ' + lint['label']
+                reward = 'SOLO_OFF'
+            elif 0 == count:
+                label = 'No %s!' % lint['label']
+                reward = 'SOLO_ON'
+            else:
+                label = str(count) + 'x ' + lint['label']
+                if 1 == count:
+                    label = label.rstrip('s')
+                reward = 'ERROR'
+            row = col.row()
+            row.prop(context.scene, lint['check_prop'], text='')
+            row.label(label, icon=reward)
+           
 
 def register():
     bpy.utils.register_module(__name__)
