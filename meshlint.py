@@ -403,186 +403,196 @@ def unregister():
     bpy.utils.unregister_module(__name__)
 
 
-import unittest
-import warnings
-import time
+# Hrm. Why does it work for some Blender's but not others?
+try:
 
-class TestControl(unittest.TestCase):
-    def test_bad_names(self):
-        for bad in [ 'Cube', 'Cube.001', 'Sphere.123' ]:
+    import unittest
+    import warnings
+
+    class TestControl(unittest.TestCase):
+        def test_bad_names(self):
+            for bad in [ 'Cube', 'Cube.001', 'Sphere.123' ]:
+                self.assertEqual(
+                    True, MeshLintControl.has_bad_name(bad),
+                    "Bad name: %s" % bad)
+            for ok in [ 'Whatever', 'NumbersOkToo.001' ]:
+                self.assertEqual(
+                    False, MeshLintControl.has_bad_name(ok),
+                    "OK name: %s" % ok)
+
+    class TestUtilities(unittest.TestCase):
+        def test_depluralize(self):
             self.assertEqual(
-                True, MeshLintControl.has_bad_name(bad), "Bad name: %s" % bad)
-        for ok in [ 'Whatever', 'NumbersOkToo.001' ]:
+                'foo',
+                depluralize(count=1, string='foos'))
             self.assertEqual(
-                False, MeshLintControl.has_bad_name(ok), "OK name: %s" % ok)
-
-class TestUtilities(unittest.TestCase):
-    def test_depluralize(self):
-        self.assertEqual(
-            'foo',
-            depluralize(count=1, string='foos'))
-        self.assertEqual(
-            'foos',
-            depluralize(count=2, string='foos'))
+                'foos',
+                depluralize(count=2, string='foos'))
 
 
-class TestAnalysis(unittest.TestCase):
-    def test_make_labels_dict(self):
-        self.assertEqual(
-            {
-                'Label One': { 'edges': [1,2], 'verts': [], 'faces': [] },
-                'Label Two': { 'edges': [], 'verts': [5], 'faces': [3] }
-            },
-            MeshLintContinuousChecker.make_labels_dict(
-                [
-                    { 'lint': { 'label': 'Label One' },
-                        'edges': [1,2], 'verts': [], 'faces': [] },
-                    { 'lint': { 'label': 'Label Two' },
-                        'edges': [], 'verts': [5], 'faces': [3] }
-                ]),
-            'Conversion of incoming analysis into label-keyed dict')
-        self.assertEqual(
-            {},
-            MeshLintContinuousChecker.make_labels_dict(None),
-            'Handles "None" OK.')
+    class TestAnalysis(unittest.TestCase):
+        def test_make_labels_dict(self):
+            self.assertEqual(
+                {
+                    'Label One': { 'edges': [1,2], 'verts': [], 'faces': [] },
+                    'Label Two': { 'edges': [], 'verts': [5], 'faces': [3] }
+                },
+                MeshLintContinuousChecker.make_labels_dict(
+                    [
+                        { 'lint': { 'label': 'Label One' },
+                            'edges': [1,2], 'verts': [], 'faces': [] },
+                        { 'lint': { 'label': 'Label Two' },
+                            'edges': [], 'verts': [5], 'faces': [3] }
+                    ]),
+                'Conversion of incoming analysis into label-keyed dict')
+            self.assertEqual(
+                {},
+                MeshLintContinuousChecker.make_labels_dict(None),
+                'Handles "None" OK.')
 
-    def test_comparison(self):
-        self.assertEqual(
-            None,
-            MeshLintContinuousChecker.diff_analyses(
-                MeshLintAnalyzer.none_analysis(),
-                MeshLintAnalyzer.none_analysis()),
-            'Two none_analysis()s')
-        self.assertEqual(
-            'Found Tris: 4 verts',
-            MeshLintContinuousChecker.diff_analyses(
+        def test_comparison(self):
+            self.assertEqual(
                 None,
-                [
-                    {
-                        'lint': { 'label': 'Tris' },
-                        'verts': [1,2,3,4],
-                        'edges': [],
-                        'faces': [],
-                    },
-                ]),
-            'When there was no previous analysis')
-        self.assertEqual(
-            'Found Tris: 2 edges, Nonmanifold Elements: 4 verts, 1 face',
-            MeshLintContinuousChecker.diff_analyses(
-                [
-                    { 'lint': { 'label': 'Tris' },
-                      'verts': [], 'edges': [1,4], 'faces': [], },
-                    { 'lint': { 'label': 'CheckB' },
-                      'verts': [], 'edges': [2,3], 'faces': [], },
-                    { 'lint': { 'label': 'Nonmanifold Elements' },
-                      'verts': [], 'edges': [], 'faces': [2,3], },
-                ],
-                [
-                    { 'lint': { 'label': 'Tris' },
-                      'verts': [], 'edges': [1,4,5,6], 'faces': [], },
-                    { 'lint': { 'label': 'CheckB' },
-                      'verts': [], 'edges': [2,3], 'faces': [], },
-                    { 'lint': { 'label': 'Nonmanifold Elements' },
-                      'verts': [1,2,3,4], 'edges': [], 'faces': [2,3,5], },
-                ]),
-            'Complex comparison of analyses')
-        self.assertEqual(
-            'Found Tris: 1 vert, Ngons: 2 faces, Nonmanifold Elements: 2 edges',
-            MeshLintContinuousChecker.diff_analyses(
-                [
-                    { 'lint': { 'label': '6+-edge Poles' },
-                      'verts': [], 'edges': [2,3], 'faces': [], },
-                    { 'lint': { 'label': 'Nonmanifold Elements' },
-                      'verts': [], 'edges': [2,3], 'faces': [], },
-                ],
-                [
-                    { 'lint': { 'label': 'Tris' },
-                      'verts': [55], 'edges': [], 'faces': [], },
-                    { 'lint': { 'label': 'Ngons' },
-                      'verts': [], 'edges': [], 'faces': [5,6], },
-                    { 'lint': { 'label': 'Nonmanifold Elements' },
-                      'verts': [], 'edges': [2,3,4,5], 'faces': [], },
-                ]),
-            'User picked a different set of checks since last run.')
+                MeshLintContinuousChecker.diff_analyses(
+                    MeshLintAnalyzer.none_analysis(),
+                    MeshLintAnalyzer.none_analysis()),
+                'Two none_analysis()s')
+            self.assertEqual(
+                'Found Tris: 4 verts',
+                MeshLintContinuousChecker.diff_analyses(
+                    None,
+                    [
+                        {
+                            'lint': { 'label': 'Tris' },
+                            'verts': [1,2,3,4],
+                            'edges': [],
+                            'faces': [],
+                        },
+                    ]),
+                'When there was no previous analysis')
+            self.assertEqual(
+                'Found Tris: 2 edges, Nonmanifold Elements: 4 verts, 1 face',
+                MeshLintContinuousChecker.diff_analyses(
+                    [
+                        { 'lint': { 'label': 'Tris' },
+                          'verts': [], 'edges': [1,4], 'faces': [], },
+                        { 'lint': { 'label': 'CheckB' },
+                          'verts': [], 'edges': [2,3], 'faces': [], },
+                        { 'lint': { 'label': 'Nonmanifold Elements' },
+                          'verts': [], 'edges': [], 'faces': [2,3], },
+                    ],
+                    [
+                        { 'lint': { 'label': 'Tris' },
+                          'verts': [], 'edges': [1,4,5,6], 'faces': [], },
+                        { 'lint': { 'label': 'CheckB' },
+                          'verts': [], 'edges': [2,3], 'faces': [], },
+                        { 'lint': { 'label': 'Nonmanifold Elements' },
+                          'verts': [1,2,3,4], 'edges': [], 'faces': [2,3,5], },
+                    ]),
+                'Complex comparison of analyses')
+            self.assertEqual(
+                'Found Tris: 1 vert, Ngons: 2 faces, ' + 
+                  'Nonmanifold Elements: 2 edges',
+                MeshLintContinuousChecker.diff_analyses(
+                    [
+                        { 'lint': { 'label': '6+-edge Poles' },
+                          'verts': [], 'edges': [2,3], 'faces': [], },
+                        { 'lint': { 'label': 'Nonmanifold Elements' },
+                          'verts': [], 'edges': [2,3], 'faces': [], },
+                    ],
+                    [
+                        { 'lint': { 'label': 'Tris' },
+                          'verts': [55], 'edges': [], 'faces': [], },
+                        { 'lint': { 'label': 'Ngons' },
+                          'verts': [], 'edges': [], 'faces': [5,6], },
+                        { 'lint': { 'label': 'Nonmanifold Elements' },
+                          'verts': [], 'edges': [2,3,4,5], 'faces': [], },
+                    ]),
+                'User picked a different set of checks since last run.')
 
-class QuietOnSuccessTestresult(unittest.TextTestResult):
-    def startTest(self, test):
-        pass
-
-    def addSuccess(self, test):
-        pass
-
-
-class QuietTestRunner(unittest.TextTestRunner):
-    resultclass = QuietOnSuccessTestresult
-
-    # Ugh. I really shouldn't have to include this much code, but they
-    # left it so unrefactored I don't know what else to do. My other
-    # option is to override the stream and substitute out the success
-    # case, but that's a mess, too. - rking
-    def run(self, test):
-        "Run the given test case or test suite."
-        result = self._makeResult()
-        unittest.registerResult(result)
-        result.failfast = self.failfast
-        result.buffer = self.buffer
-        with warnings.catch_warnings():
-            if self.warnings:
-                # if self.warnings is set, use it to filter all the warnings
-                warnings.simplefilter(self.warnings)
-                # if the filter is 'default' or 'always', special-case the
-                # warnings from the deprecated unittest methods to show them
-                # no more than once per module, because they can be fairly
-                # noisy.  The -Wd and -Wa flags can be used to bypass this
-                # only when self.warnings is None.
-                if self.warnings in ['default', 'always']:
-                    warnings.filterwarnings('module',
-                            category=DeprecationWarning,
-                            message='Please use assert\w+ instead.')
-            startTime = time.time()
-            startTestRun = getattr(result, 'startTestRun', None)
-            if startTestRun is not None:
-                startTestRun()
-            try:
-                test(result)
-            finally:
-                stopTestRun = getattr(result, 'stopTestRun', None)
-                if stopTestRun is not None:
-                    stopTestRun()
-            stopTime = time.time()
-        timeTaken = stopTime - startTime
-        result.printErrors()
-        run = result.testsRun
-
-        expectedFails = unexpectedSuccesses = skipped = 0
-        try:
-            results = map(len, (result.expectedFailures,
-                                result.unexpectedSuccesses,
-                                result.skipped))
-        except AttributeError:
+    class QuietOnSuccessTestresult(unittest.TextTestResult):
+        def startTest(self, test):
             pass
-        else:
-            expectedFails, unexpectedSuccesses, skipped = results
 
-        infos = []
-        if not result.wasSuccessful():
-            self.stream.write("FAILED")
-            failed, errored = len(result.failures), len(result.errors)
-            if failed:
-                infos.append("failures=%d" % failed)
-            if errored:
-                infos.append("errors=%d" % errored)
-        if skipped:
-            infos.append("skipped=%d" % skipped)
-        if expectedFails:
-            infos.append("expected failures=%d" % expectedFails)
-        if unexpectedSuccesses:
-            infos.append("unexpected successes=%d" % unexpectedSuccesses)
-        return result
+        def addSuccess(self, test):
+            pass
+
+
+    class QuietTestRunner(unittest.TextTestRunner):
+        resultclass = QuietOnSuccessTestresult
+
+        # Ugh. I really shouldn't have to include this much code, but they
+        # left it so unrefactored I don't know what else to do. My other
+        # option is to override the stream and substitute out the success
+        # case, but that's a mess, too. - rking
+        def run(self, test):
+            "Run the given test case or test suite."
+            result = self._makeResult()
+            unittest.registerResult(result)
+            result.failfast = self.failfast
+            result.buffer = self.buffer
+            with warnings.catch_warnings():
+                if self.warnings:
+                    # if self.warnings is set, use it to filter all the warnings
+                    warnings.simplefilter(self.warnings)
+                    # if the filter is 'default' or 'always', special-case the
+                    # warnings from the deprecated unittest methods to show them
+                    # no more than once per module, because they can be fairly
+                    # noisy.  The -Wd and -Wa flags can be used to bypass this
+                    # only when self.warnings is None.
+                    if self.warnings in ['default', 'always']:
+                        warnings.filterwarnings('module',
+                                category=DeprecationWarning,
+                                message='Please use assert\w+ instead.')
+                startTime = time.time()
+                startTestRun = getattr(result, 'startTestRun', None)
+                if startTestRun is not None:
+                    startTestRun()
+                try:
+                    test(result)
+                finally:
+                    stopTestRun = getattr(result, 'stopTestRun', None)
+                    if stopTestRun is not None:
+                        stopTestRun()
+                stopTime = time.time()
+            timeTaken = stopTime - startTime
+            result.printErrors()
+            run = result.testsRun
+
+            expectedFails = unexpectedSuccesses = skipped = 0
+            try:
+                results = map(len, (result.expectedFailures,
+                                    result.unexpectedSuccesses,
+                                    result.skipped))
+            except AttributeError:
+                pass
+            else:
+                expectedFails, unexpectedSuccesses, skipped = results
+
+            infos = []
+            if not result.wasSuccessful():
+                self.stream.write("FAILED")
+                failed, errored = len(result.failures), len(result.errors)
+                if failed:
+                    infos.append("failures=%d" % failed)
+                if errored:
+                    infos.append("errors=%d" % errored)
+            if skipped:
+                infos.append("skipped=%d" % skipped)
+            if expectedFails:
+                infos.append("expected failures=%d" % expectedFails)
+            if unexpectedSuccesses:
+                infos.append("unexpected successes=%d" % unexpectedSuccesses)
+            return result
+
+    if __name__ == '__main__':
+        unittest.main(
+            testRunner=QuietTestRunner, argv=['dummy'], exit=False, verbosity=0)
+
+except ImportError:
+    print("MeshLint complains about lack of unittest module.")
 
 if __name__ == '__main__':
-    unittest.main(
-        testRunner=QuietTestRunner, argv=['dummy'], exit=False, verbosity=0)
     register()
 
 # vim:ts=4 sw=4 sts=4
