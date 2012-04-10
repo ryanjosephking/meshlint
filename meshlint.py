@@ -48,6 +48,8 @@ CHECKS = [
   # [Your great new idea here] -> Tell me about it: rking@panoptic.com
 ]
 
+ELEM_TYPES = [ 'verts', 'edges', 'faces' ]
+
 N_A_STR = '(N/A - disabled)'
 TBD_STR = '...'
 
@@ -83,7 +85,7 @@ class MeshLintAnalyzer:
             check_method = getattr(type(self), check_method_name)
             bad = check_method(self)
             report = { 'lint': lint }
-            for elemtype in 'verts', 'edges', 'faces': # XXX redundant
+            for elemtype in ELEM_TYPES:
                 indices = bad.get(elemtype, [])
                 report[elemtype] = indices
                 lint['count'] += len(indices)
@@ -94,11 +96,9 @@ class MeshLintAnalyzer:
     def none_analysis(cls):
         analysis = []
         for lint in CHECKS:
-            analysis.append({
-                'lint': lint,
-                'verts': [],
-                'edges': [],
-                'faces': []})
+            row = { elemtype: [] for elemtype in ELEM_TYPES }
+            row['lint'] = lint
+            analysis.append(row)
         return analysis
 
     def ensure_edit_mode(self):
@@ -275,10 +275,10 @@ class MeshLintSelector(bpy.types.Operator):
         self.select_none()
         analysis = analyzer.find_problems()
         for lint in analysis:
-            for elemtype in 'verts', 'edges', 'faces': # XXX redundant
+            for elemtype in ELEM_TYPES:
                 indices = lint[elemtype]
                 analyzer.select_indices(elemtype, indices)
-        # XXX Note. This doesn't quite get it done. I don't know if it's a
+        # TODO Note. This doesn't quite get it done. I don't know if it's a
         # problem in my script or in the redraw, but sometimes you have to
         # move the 3D View to get the selection to show. =( I need to first
         # figure out the exact circumstances that cause it, then go about
