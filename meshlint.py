@@ -1,7 +1,7 @@
 bl_info = {
     'name': 'MeshLint: Scrutinize Mesh Quality',
     'author': 'rking',
-    'version': (0, 2),
+    'version': (0, 8),
     'blender': (2, 6, 3),
     'location': 'Object Data properties > MeshLint',
     'description': 'Check a mesh for: Tris / Ngons / Nonmanifoldness / etc',
@@ -590,7 +590,7 @@ try:
             testRunner=QuietTestRunner, argv=['dummy'], exit=False, verbosity=0)
 
 except ImportError:
-    print("MeshLint complains about lack of unittest module.")
+    print("MeshLint complains over missing unittest module. No harm, only odd.")
 
 if __name__ == '__main__':
     register()
