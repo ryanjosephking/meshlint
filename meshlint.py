@@ -165,76 +165,81 @@ def has_active_mesh(context):
     obj = context.active_object 
     return obj and 'MESH' == obj.type
 
-
-# XXX Reconsider these global vars & funcs as a class or so.
-previous_topology_counts = None
-previous_analysis = None
 @bpy.app.handlers.persistent
-def repeated_check(dummy):
-    global previous_topology_counts
-    global previous_analysis
-    if 'EDIT_MESH' != bpy.context.mode:
-        return
-    analyzer = MeshLintAnalyzer()
-    now_counts = analyzer.topology_counts()
-    if not None is previous_topology_counts:
-        previous_data_name = previous_topology_counts['data'].name
-    else:
-        previous_data_name = None
-    now_name = now_counts['data'].name
-    if None is previous_topology_counts \
-            or now_counts != previous_topology_counts:
-        if not previous_data_name == now_name:
+def global_repeated_check(dummy):
+    MeshLintContinuousChecker.check()
+
+class MeshLintContinuousChecker():
+    previous_topology_counts = None
+    previous_analysis = None
+
+    @classmethod
+    def check(cls):
+        if 'EDIT_MESH' != bpy.context.mode:
+            return
+        analyzer = MeshLintAnalyzer()
+        now_counts = analyzer.topology_counts()
+        previous_topology_counts = \
+            MeshLintContinuousChecker.previous_topology_counts
+        if not None is previous_topology_counts:
+            previous_data_name = previous_topology_counts['data'].name
+        else:
+            previous_data_name = None
+        now_name = now_counts['data'].name
+        if None is previous_topology_counts \
+                or now_counts != previous_topology_counts:
+            if not previous_data_name == now_name:
+                before = MeshLintAnalyzer.none_analysis()
+            analysis = analyzer.find_problems()
+            diff_msg = MeshLintContinuousChecker.diff_analyses(
+                MeshLintContinuousChecker.previous_analysis, analysis)
+            if not None is diff_msg:
+                print(diff_msg) # TODO - make a happy message thing.
+            MeshLintContinuousChecker.previous_topology_counts = now_counts
+            MeshLintContinuousChecker.previous_analysis = analysis
+
+    def diff_analyses(before, analysis):
+        if None is before:
             before = MeshLintAnalyzer.none_analysis()
-        analysis = analyzer.find_problems()
-        diff_msg = diff_analyses(previous_analysis, analysis)
-        if not None is diff_analyses:
-            print(diff_msg) # TODO - make a happy message thing.
-        previous_topology_counts = now_counts
-        previous_analysis = analysis
-
-
-def diff_analyses(before, analysis):
-    if None is before:
-        before = MeshLintAnalyzer.none_analysis()
-    report_strings = []
-    for i in range(len(analysis)):
-        report_before = before[i]
-        report = analysis[i]
-        check_elem_strings = []
-        for elemtype in 'verts', 'edges', 'faces': # XXX redundant
-            elem_list_before = report_before[elemtype]
-            elem_list = report[elemtype]
-            if len(elem_list) > len(elem_list_before):
-                count_diff = len(elem_list) - len(elem_list_before)
-                elem_string = depluralize(count=count_diff, string=elemtype)
-                check_elem_strings.append(str(count_diff) + ' ' + elem_string)
-        if len(check_elem_strings):
-            report_strings.append(
-                report['lint']['label'] + ': ' + ', '.join(check_elem_strings))
-    if len(report_strings):
-        return 'MeshLint found ' + ', '.join(report_strings)
-    return None
-
-is_live_global = False
+        report_strings = []
+        for i in range(len(analysis)):
+            report_before = before[i]
+            report = analysis[i]
+            check_elem_strings = []
+            for elemtype in 'verts', 'edges', 'faces': # XXX redundant
+                elem_list_before = report_before[elemtype]
+                elem_list = report[elemtype]
+                if len(elem_list) > len(elem_list_before):
+                    count_diff = len(elem_list) - len(elem_list_before)
+                    elem_string = depluralize(count=count_diff, string=elemtype)
+                    check_elem_strings.append(
+                        str(count_diff) + ' ' + elem_string)
+            if len(check_elem_strings):
+                prefix = report['lint']['label'] + ': '
+                check_list = ', '.join(check_elem_strings)
+                report_strings.append(prefix + check_list)
+        if len(report_strings):
+            return 'MeshLint found ' + ', '.join(report_strings)
+        return None
 
 class MeshLintVitalizer(bpy.types.Operator):
     'Toggles the real-time execution of the checks'
     bl_idname = 'meshlint.live_toggle'
     bl_label = 'MeshLint Live Toggle'
 
+    is_live = False
+
     @classmethod
     def poll(cls, context):
         return has_active_mesh(context) and 'EDIT_MESH' == bpy.context.mode
 
     def execute(self, context):
-        global is_live_global
-        if is_live_global:
-            bpy.app.handlers.scene_update_post.remove(repeated_check)
-            is_live_global = False
+        if MeshLintVitalizer.is_live:
+            bpy.app.handlers.scene_update_post.remove(global_repeated_check)
+            MeshLintVitalizer.is_live = False
         else:
-            bpy.app.handlers.scene_update_post.append(repeated_check)
-            is_live_global = True
+            bpy.app.handlers.scene_update_post.append(global_repeated_check)
+            MeshLintVitalizer.is_live = True
         return {'FINISHED'}
 
 class MeshLintSelector(bpy.types.Operator):
@@ -261,8 +266,9 @@ class MeshLintSelector(bpy.types.Operator):
         # figure out the exact circumstances that cause it, then go about
         # debugging.
         context.area.tag_redraw()
-        global previous_analysis
-        previous_analysis = analysis # used in repeated_check()
+        # Record this so the first time the user hits "Continuous Check!" it
+        # doesn't spew out info they already knew:
+        MeshLintContinuousChecker.previous_analysis = analysis
         return {'FINISHED'}
 
     def select_none(self):
@@ -288,8 +294,7 @@ class MeshLintControl(bpy.types.Panel):
             'meshlint.select', text='Select Lint', icon='EDITMODE_HLT')
 
         right = split.column()
-        global is_live_global
-        if is_live_global:
+        if MeshLintVitalizer.is_live:
             live_label = 'pause checking...'
             play_pause = 'PAUSE'
         else:
@@ -388,13 +393,13 @@ class TestAnalysis(unittest.TestCase):
         b = MeshLintAnalyzer.none_analysis()
         self.assertEqual(
             None,
-            diff_analyses(
+            MeshLintContinuousChecker.diff_analyses(
                 MeshLintAnalyzer.none_analysis(),
                 MeshLintAnalyzer.none_analysis()),
             'Two none_analysis()s')
         self.assertEqual(
             "MeshLint found SomeCheck: 4 verts",
-            diff_analyses(
+            MeshLintContinuousChecker.diff_analyses(
                 None,
                 [
                     {
@@ -407,7 +412,7 @@ class TestAnalysis(unittest.TestCase):
             'When there was no previous analysis')
         self.assertEqual(
             "MeshLint found CheckA: 2 edges, CheckC: 4 verts, 1 face",
-            diff_analyses(
+            MeshLintContinuousChecker.diff_analyses(
                 [
                     { 'lint': { 'label': 'CheckA' },
                       'verts': [], 'edges': [1,4], 'faces': [], },
