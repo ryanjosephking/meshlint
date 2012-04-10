@@ -339,10 +339,11 @@ class MeshLintControl(bpy.types.Panel):
                 reward = 'ERROR'
             row = col.row()
             row.prop(context.scene, lint['check_prop'], text=label, icon=reward)
-        if self.has_bad_name(active.name):
+        if MeshLintControl.has_bad_name(active.name):
             col.row().label(
                 '...and "%s" is not a great name, BTW.' % active.name)
 
+    @classmethod
     def has_bad_name(self, name):
         default_names = [
             'BezierCircle',
@@ -371,7 +372,7 @@ class MeshLintControl(bpy.types.Panel):
             'Text',
         ]
         pat = '(%s)\.?\d*$' % '|'.join(default_names)
-        return re.match(pat, name)
+        return not None is re.match(pat, name)
 
 
 def depluralize(**args):
@@ -393,11 +394,14 @@ import unittest
 import warnings
 import time
 
-# TODO
-# class TestControl(unittest.TestCase):
-#     def test_bad_names(self):
-#         c = MeshLintControl()
-#         ....
+class TestControl(unittest.TestCase):
+    def test_bad_names(self):
+        for bad in [ 'Cube', 'Cube.001', 'Sphere.123' ]:
+            self.assertEqual(
+                True, MeshLintControl.has_bad_name(bad), "Bad name: %s" % bad)
+        for ok in [ 'Whatever', 'NumbersOkToo.001' ]:
+            self.assertEqual(
+                False, MeshLintControl.has_bad_name(ok), "OK name: %s" % ok)
 
 class TestUtilities(unittest.TestCase):
     def test_depluralize(self):
@@ -495,10 +499,6 @@ class QuietOnSuccessTestresult(unittest.TextTestResult):
     def addSuccess(self, test):
         pass
 
-    # ...and silencing this one from printing a spurious "E"
-    def addError(self, test, err):
-        pass
-
 
 class QuietTestRunner(unittest.TextTestRunner):
     resultclass = QuietOnSuccessTestresult
@@ -568,7 +568,8 @@ class QuietTestRunner(unittest.TextTestRunner):
         return result
 
 if __name__ == '__main__':
-    unittest.main(testRunner=QuietTestRunner, argv=['dummy'], exit=False)
+    unittest.main(
+        testRunner=QuietTestRunner, argv=['dummy'], exit=False, verbosity=0)
     register()
 
 # vim:ts=4 sw=4 sts=4
