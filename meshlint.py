@@ -57,6 +57,8 @@ for lint in CHECKS:
     prop = 'meshlint_check_' + sym
     lint['check_prop'] = prop
     'meshlint_check_' + sym
+    # TODO - blank previous_analysis on_change (fixes unexpected behavior
+    # where checking/unchecking things does not update the counts/icons)
     setattr(
         bpy.types.Scene,
         prop,
@@ -435,12 +437,12 @@ class TestAnalysis(unittest.TestCase):
                 MeshLintAnalyzer.none_analysis()),
             'Two none_analysis()s')
         self.assertEqual(
-            'MeshLint found SomeCheck: 4 verts',
+            'MeshLint found Tris: 4 verts',
             MeshLintContinuousChecker.diff_analyses(
                 None,
                 [
                     {
-                        'lint': { 'label': 'SomeCheck' },
+                        'lint': { 'label': 'Tris' },
                         'verts': [1,2,3,4],
                         'edges': [],
                         'faces': [],
@@ -448,40 +450,40 @@ class TestAnalysis(unittest.TestCase):
                 ]),
             'When there was no previous analysis')
         self.assertEqual(
-            'MeshLint found CheckA: 2 edges, CheckC: 4 verts, 1 face',
+            'MeshLint found Tris: 2 edges, Nonmanifold Elements: 4 verts, 1 face',
             MeshLintContinuousChecker.diff_analyses(
                 [
-                    { 'lint': { 'label': 'CheckA' },
+                    { 'lint': { 'label': 'Tris' },
                       'verts': [], 'edges': [1,4], 'faces': [], },
                     { 'lint': { 'label': 'CheckB' },
                       'verts': [], 'edges': [2,3], 'faces': [], },
-                    { 'lint': { 'label': 'CheckC' },
+                    { 'lint': { 'label': 'Nonmanifold Elements' },
                       'verts': [], 'edges': [], 'faces': [2,3], },
                 ],
                 [
-                    { 'lint': { 'label': 'CheckA' },
+                    { 'lint': { 'label': 'Tris' },
                       'verts': [], 'edges': [1,4,5,6], 'faces': [], },
                     { 'lint': { 'label': 'CheckB' },
                       'verts': [], 'edges': [2,3], 'faces': [], },
-                    { 'lint': { 'label': 'CheckC' },
+                    { 'lint': { 'label': 'Nonmanifold Elements' },
                       'verts': [1,2,3,4], 'edges': [], 'faces': [2,3,5], },
                 ]),
             'Complex comparison of analyses')
         self.assertEqual(
-            'MeshLint found NewCheck: 1 vert, AnotherNewCheck: 2 faces, StillCheck: 2 edges',
+            'MeshLint found Tris: 1 vert, Ngons: 2 faces, Nonmanifold Elements: 2 edges',
             MeshLintContinuousChecker.diff_analyses(
                 [
-                    { 'lint': { 'label': 'OldCheck' },
+                    { 'lint': { 'label': '6+-edge Poles' },
                       'verts': [], 'edges': [2,3], 'faces': [], },
-                    { 'lint': { 'label': 'StillCheck' },
+                    { 'lint': { 'label': 'Nonmanifold Elements' },
                       'verts': [], 'edges': [2,3], 'faces': [], },
                 ],
                 [
-                    { 'lint': { 'label': 'NewCheck' },
+                    { 'lint': { 'label': 'Tris' },
                       'verts': [55], 'edges': [], 'faces': [], },
-                    { 'lint': { 'label': 'AnotherNewCheck' },
+                    { 'lint': { 'label': 'Ngons' },
                       'verts': [], 'edges': [], 'faces': [5,6], },
-                    { 'lint': { 'label': 'StillCheck' },
+                    { 'lint': { 'label': 'Nonmanifold Elements' },
                       'verts': [], 'edges': [2,3,4,5], 'faces': [], },
                 ]),
             'User picked a different set of checks since last run.')
