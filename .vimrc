@@ -6,6 +6,6 @@
 " Alt+r,Enter to reload the code in the Text Editor, then Alt+p it and do
 " whatever test you want (I kept the "whatever test" part pretty minimal, so
 " it wouldn't get in the way when I wanted to do something else).
-map <f5> :up<cr>:!./replay<cr>
+map <f5> :up<cr>:!./replay 2>&1 > /dev/null<cr>
 
 cd dev " <-- I don't like this. FIXME
