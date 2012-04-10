@@ -110,8 +110,8 @@ class MeshLintAnalyzer:
             for elem in getattr(self.b, elemtype):
                 if not elem.is_manifold:
                     bad[elemtype].append(elem.index)
-        print('MeshLint TODO: Deselect mirror-plane verts.')
-        # ...anybody wanna tackle Mirrors with an Object Offset?
+        # TODO: Exempt mirror-plane verts.
+        # Plus: ...anybody wanna tackle Mirrors with an Object Offset?
         return bad
 
     def check_tris(self):
@@ -184,13 +184,12 @@ def repeated_check(dummy):
     now_name = now_counts['data'].name
     if None is previous_topology_counts \
             or now_counts != previous_topology_counts:
-        data_names_same = previous_data_name == now_name
-        if not data_names_same:
-            print("TODO: Verify that this functionality works then remove this message.")
+        if not previous_data_name == now_name:
             before = MeshLintAnalyzer.none_analysis()
         analysis = analyzer.find_problems()
-        diff_msg = diff_analyses(analysis, previous_analysis)
-        # print(diff_msg) # TODO - make a happy message thing.
+        diff_msg = diff_analyses(previous_analysis, analysis)
+        if not None is diff_analyses:
+            print(diff_msg) # TODO - make a happy message thing.
         previous_topology_counts = now_counts
         previous_analysis = analysis
 
