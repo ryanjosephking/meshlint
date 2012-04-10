@@ -198,29 +198,45 @@ class MeshLintContinuousChecker():
             MeshLintContinuousChecker.previous_topology_counts = now_counts
             MeshLintContinuousChecker.previous_analysis = analysis
 
-    def diff_analyses(before, analysis):
+    @classmethod
+    def diff_analyses(cls, before, after):
         if None is before:
             before = MeshLintAnalyzer.none_analysis()
         report_strings = []
-        for i in range(len(analysis)):
-            report_before = before[i]
-            report = analysis[i]
+        dict_before = MeshLintContinuousChecker.make_labels_dict(before)
+        dict_now = MeshLintContinuousChecker.make_labels_dict(after)
+        for check in CHECKS:
+            check_name = check['label']
+            if not check_name in dict_now.keys():
+                continue
+            report = dict_now[check_name]
+            report_before = dict_before.get(check_name, {})
             check_elem_strings = []
-            for elemtype in 'verts', 'edges', 'faces': # XXX redundant
-                elem_list_before = report_before[elemtype]
-                elem_list = report[elemtype]
+            for elemtype, elem_list in report.items():
+                elem_list_before = report_before.get(elemtype, [])
                 if len(elem_list) > len(elem_list_before):
                     count_diff = len(elem_list) - len(elem_list_before)
                     elem_string = depluralize(count=count_diff, string=elemtype)
                     check_elem_strings.append(
                         str(count_diff) + ' ' + elem_string)
             if len(check_elem_strings):
-                prefix = report['lint']['label'] + ': '
-                check_list = ', '.join(check_elem_strings)
-                report_strings.append(prefix + check_list)
+                report_strings.append(
+                    check_name + ': ' + ', '.join(check_elem_strings))
         if len(report_strings):
             return 'MeshLint found ' + ', '.join(report_strings)
         return None
+
+    @classmethod
+    def make_labels_dict(cls, analysis):
+        if None is analysis:
+            return {}
+        labels_dict = {}
+        for check in analysis:
+            label = check['lint']['label']
+            new_val = check.copy()
+            del new_val['lint']
+            labels_dict[label] = new_val
+        return labels_dict
 
 class MeshLintVitalizer(bpy.types.Operator):
     'Toggles the real-time execution of the checks'
@@ -295,7 +311,7 @@ class MeshLintControl(bpy.types.Panel):
 
         right = split.column()
         if MeshLintVitalizer.is_live:
-            live_label = 'pause checking...'
+            live_label = 'Pause Checking...'
             play_pause = 'PAUSE'
         else:
             live_label = 'Continuous Check!'
@@ -308,7 +324,6 @@ class MeshLintControl(bpy.types.Panel):
         if not has_active_mesh(context):
             return
         for lint in CHECKS:
-            # TODO - switch back to the big buttons. The checkboxes are lame.
             count = lint['count']
             if count in (TBD_STR, N_A_STR):
                 label = str(count) + ' ' + lint['label']
@@ -321,8 +336,7 @@ class MeshLintControl(bpy.types.Panel):
                 label = depluralize(count=count, string=label)
                 reward = 'ERROR'
             row = col.row()
-            row.prop(context.scene, lint['check_prop'], text='')
-            row.label(label, icon=reward)
+            row.prop(context.scene, lint['check_prop'], text=label, icon=reward)
         if self.has_bad_name(active.name):
             col.row().label(
                 '...and "%s" is not a great name, BTW.' % active.name)
@@ -377,6 +391,12 @@ import unittest
 import warnings
 import time
 
+# TODO
+# class TestControl(unittest.TestCase):
+#     def test_bad_names(self):
+#         c = MeshLintControl()
+#         ....
+
 class TestUtilities(unittest.TestCase):
     def test_depluralize(self):
         self.assertEqual(
@@ -388,9 +408,26 @@ class TestUtilities(unittest.TestCase):
 
 
 class TestAnalysis(unittest.TestCase):
+    def test_make_labels_dict(self):
+        self.assertEqual(
+            {
+                'Label One': { 'edges': [1,2], 'verts': [], 'faces': [] },
+                'Label Two': { 'edges': [], 'verts': [5], 'faces': [3] }
+            },
+            MeshLintContinuousChecker.make_labels_dict(
+                [
+                    { 'lint': { 'label': 'Label One' },
+                        'edges': [1,2], 'verts': [], 'faces': [] },
+                    { 'lint': { 'label': 'Label Two' },
+                        'edges': [], 'verts': [5], 'faces': [3] }
+                ]),
+            'Conversion of incoming analysis into label-keyed dict')
+        self.assertEqual(
+            {},
+            MeshLintContinuousChecker.make_labels_dict(None),
+            'Handles "None" OK.')
+
     def test_comparison(self):
-        a = MeshLintAnalyzer.none_analysis()
-        b = MeshLintAnalyzer.none_analysis()
         self.assertEqual(
             None,
             MeshLintContinuousChecker.diff_analyses(
@@ -398,7 +435,7 @@ class TestAnalysis(unittest.TestCase):
                 MeshLintAnalyzer.none_analysis()),
             'Two none_analysis()s')
         self.assertEqual(
-            "MeshLint found SomeCheck: 4 verts",
+            'MeshLint found SomeCheck: 4 verts',
             MeshLintContinuousChecker.diff_analyses(
                 None,
                 [
@@ -411,7 +448,7 @@ class TestAnalysis(unittest.TestCase):
                 ]),
             'When there was no previous analysis')
         self.assertEqual(
-            "MeshLint found CheckA: 2 edges, CheckC: 4 verts, 1 face",
+            'MeshLint found CheckA: 2 edges, CheckC: 4 verts, 1 face',
             MeshLintContinuousChecker.diff_analyses(
                 [
                     { 'lint': { 'label': 'CheckA' },
@@ -430,6 +467,24 @@ class TestAnalysis(unittest.TestCase):
                       'verts': [1,2,3,4], 'edges': [], 'faces': [2,3,5], },
                 ]),
             'Complex comparison of analyses')
+        self.assertEqual(
+            'MeshLint found NewCheck: 1 vert, AnotherNewCheck: 2 faces, StillCheck: 2 edges',
+            MeshLintContinuousChecker.diff_analyses(
+                [
+                    { 'lint': { 'label': 'OldCheck' },
+                      'verts': [], 'edges': [2,3], 'faces': [], },
+                    { 'lint': { 'label': 'StillCheck' },
+                      'verts': [], 'edges': [2,3], 'faces': [], },
+                ],
+                [
+                    { 'lint': { 'label': 'NewCheck' },
+                      'verts': [55], 'edges': [], 'faces': [], },
+                    { 'lint': { 'label': 'AnotherNewCheck' },
+                      'verts': [], 'edges': [], 'faces': [5,6], },
+                    { 'lint': { 'label': 'StillCheck' },
+                      'verts': [], 'edges': [2,3,4,5], 'faces': [], },
+                ]),
+            'User picked a different set of checks since last run.')
 
 class QuietOnSuccessTestresult(unittest.TextTestResult):
     def startTest(self, test):
@@ -438,13 +493,19 @@ class QuietOnSuccessTestresult(unittest.TextTestResult):
     def addSuccess(self, test):
         pass
 
+    # ...and silencing this one from printing a spurious "E"
+    def addError(self, test, err):
+        pass
+
 
 class QuietTestRunner(unittest.TextTestRunner):
     resultclass = QuietOnSuccessTestresult
 
+    # Ugh. I really shouldn't have to include this much code, but they
+    # left it so unrefactored I don't know what else to do. My other
+    # option is to override the stream and substitute out the success
+    # case, but that's a mess, too. - rking
     def run(self, test):
-        # Ugh. I really shouldn't have to include this much code, but they
-        # left it so unrefactored I don't know what else to do. - rking
         "Run the given test case or test suite."
         result = self._makeResult()
         unittest.registerResult(result)
