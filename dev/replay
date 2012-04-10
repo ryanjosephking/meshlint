@@ -1,0 +1,1 @@
+cnee --replay -f blendev.xns --speed-percent 10 -ns 2>&1 > /dev/null

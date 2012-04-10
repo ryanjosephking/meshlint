@@ -1,0 +1,3 @@
+#!/bin/sh
+sleep 3
+cnee --record --events-to-record 800 --mouse --keyboard -o blendev.xns -v
