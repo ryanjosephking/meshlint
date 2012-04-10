@@ -12,6 +12,7 @@ bl_info = {
 
 import bpy
 import bmesh
+import time
 import re
 
 SUBPANEL_LABEL = 'MeshLint'
@@ -172,6 +173,8 @@ def global_repeated_check(dummy):
     MeshLintContinuousChecker.check()
 
 class MeshLintContinuousChecker():
+    current_message = ''
+    message_displayed_at = 0
     previous_topology_counts = None
     previous_analysis = None
 
@@ -196,9 +199,12 @@ class MeshLintContinuousChecker():
             diff_msg = MeshLintContinuousChecker.diff_analyses(
                 MeshLintContinuousChecker.previous_analysis, analysis)
             if not None is diff_msg:
-                print(diff_msg) # TODO - make a happy message thing.
+                MeshLintContinuousChecker.current_message = diff_msg
+                MeshLintContinuousChecker.message_displayed_at = time.time()
             MeshLintContinuousChecker.previous_topology_counts = now_counts
             MeshLintContinuousChecker.previous_analysis = analysis
+        if 3 < time.time() - MeshLintContinuousChecker.message_displayed_at:
+            MeshLintContinuousChecker.current_message = ''
 
     @classmethod
     def diff_analyses(cls, before, after):
@@ -225,7 +231,7 @@ class MeshLintContinuousChecker():
                 report_strings.append(
                     check_name + ': ' + ', '.join(check_elem_strings))
         if len(report_strings):
-            return 'MeshLint found ' + ', '.join(report_strings)
+            return 'Found ' + ', '.join(report_strings)
         return None
 
     @classmethod
@@ -301,9 +307,16 @@ class MeshLintControl(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        self.maybe_add_now_you_done_it_text(layout)
         self.add_main_buttons(layout)
         if 'EDIT_MESH' == bpy.context.mode:
             self.add_rows(layout, context)
+
+    def maybe_add_now_you_done_it_text(self, layout):
+        col = layout.column()
+        msg = MeshLintContinuousChecker.current_message
+        if not '' == msg:
+            col.label(msg, icon='ERROR')
 
     def add_main_buttons(self, layout):
         split = layout.split()
@@ -441,7 +454,7 @@ class TestAnalysis(unittest.TestCase):
                 MeshLintAnalyzer.none_analysis()),
             'Two none_analysis()s')
         self.assertEqual(
-            'MeshLint found Tris: 4 verts',
+            'Found Tris: 4 verts',
             MeshLintContinuousChecker.diff_analyses(
                 None,
                 [
@@ -454,7 +467,7 @@ class TestAnalysis(unittest.TestCase):
                 ]),
             'When there was no previous analysis')
         self.assertEqual(
-            'MeshLint found Tris: 2 edges, Nonmanifold Elements: 4 verts, 1 face',
+            'Found Tris: 2 edges, Nonmanifold Elements: 4 verts, 1 face',
             MeshLintContinuousChecker.diff_analyses(
                 [
                     { 'lint': { 'label': 'Tris' },
@@ -474,7 +487,7 @@ class TestAnalysis(unittest.TestCase):
                 ]),
             'Complex comparison of analyses')
         self.assertEqual(
-            'MeshLint found Tris: 1 vert, Ngons: 2 faces, Nonmanifold Elements: 2 edges',
+            'Found Tris: 1 vert, Ngons: 2 faces, Nonmanifold Elements: 2 edges',
             MeshLintContinuousChecker.diff_analyses(
                 [
                     { 'lint': { 'label': '6+-edge Poles' },
