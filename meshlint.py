@@ -395,14 +395,6 @@ def depluralize(**args):
         return args['string']
            
 
-def register():
-    bpy.utils.register_module(__name__)
-
-
-def unregister():
-    bpy.utils.unregister_module(__name__)
-
-
 # Hrm. Why does it work for some Blender's but not others?
 try:
 
@@ -591,6 +583,15 @@ try:
 
 except ImportError:
     print("MeshLint complains over missing unittest module. No harm, only odd.")
+
+
+def register():
+    bpy.utils.register_module(__name__)
+
+
+def unregister():
+    bpy.utils.unregister_module(__name__)
+
 
 if __name__ == '__main__':
     register()
