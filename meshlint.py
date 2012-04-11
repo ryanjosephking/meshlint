@@ -141,7 +141,6 @@ class MeshLintAnalyzer:
     def select_indices(self, elemtype, indices):
         bmseq = getattr(self.b, elemtype)
         for i in indices:
-            # TODO: maybe filter out hidden elements?
             bmseq[i].select = True
 
     def topology_counts(self):
