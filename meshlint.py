@@ -330,6 +330,10 @@ class MeshLintControl(bpy.types.Panel):
     bl_context = 'data'
     bl_label = SUBPANEL_LABEL
 
+    @classmethod
+    def poll(cls, context):
+        return has_active_mesh(context)
+
     def draw(self, context):
         layout = self.layout
         self.add_main_buttons(layout)
