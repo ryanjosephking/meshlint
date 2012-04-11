@@ -299,11 +299,6 @@ class MeshLintSelector(bpy.types.Operator):
             for elemtype in ELEM_TYPES:
                 indices = lint[elemtype]
                 analyzer.select_indices(elemtype, indices)
-        # TODO Note. This doesn't quite get it done. I don't know if it's a
-        # problem in my script or in the redraw, but sometimes you have to
-        # move the 3D View to get the selection to show. =( I need to first
-        # figure out the exact circumstances that cause it, then go about
-        # debugging.
         context.area.tag_redraw()
         # Record this so the first time the user hits "Continuous Check!" it
         # doesn't spew out info they already knew:
