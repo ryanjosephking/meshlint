@@ -70,6 +70,7 @@ class MeshLintAnalyzer:
     CHECKS.append({
         'symbol': 'tris',
         'label': 'Tris',
+        'definition': 'A face with 3 edges. Often bad for modeling because it stops edge loops and does not deform well around bent areas. A mesh might look good until you animate, so beware!',
         'default': True
     })
     def check_tris(self):
@@ -82,6 +83,7 @@ class MeshLintAnalyzer:
     CHECKS.append({
         'symbol': 'ngons',
         'label': 'Ngons',
+        'definition': 'A face with >4 edges. Is generally bad in exactly the same ways as Tris',
         'default': True
     })
     def check_ngons(self):
@@ -94,6 +96,7 @@ class MeshLintAnalyzer:
     CHECKS.append({
         'symbol': 'nonmanifold',
         'label': 'Nonmanifold Elements',
+        'definition': 'Simply, shapes that won\'t hold water. More precisely, nonmanifold edges are those that do not have exactly 2 faces attached to them (either more or less). Nonmanifold verts are more complicated -- you can see their definition in BM_vert_is_manifold() in bmesh_queries.c',
         'default': True
     })
     def check_nonmanifold(self):
@@ -110,6 +113,7 @@ class MeshLintAnalyzer:
     CHECKS.append({
         'symbol': 'interior_faces',
         'label': 'Interior Faces',
+        'definition': 'This confuses people. It is very specific: A face whose edges ALL have >2 faces attached. The simplest way to see this is to Ctrl+r a Default Cube and hit \'f\'',
         'default': True
     })
     def check_interior_faces(self): # translated from editmesh_select.c
@@ -122,6 +126,7 @@ class MeshLintAnalyzer:
     CHECKS.append({
         'symbol': 'sixplus_poles',
         'label': '6+-edge Poles',
+        'definition': 'A vertex with 6 or more edges connected to it. Generally this is not something you want, but since some kinds of extrusions will legitimately cause such a pole (imagine extruding each face of a Cube outward, the inner corners are rightful 6+-poles). Still, if you don\'t know for sure that you want them, it is good to enable this',
         'default': False
     })
     def check_sixplus_poles(self):
@@ -160,7 +165,9 @@ class MeshLintAnalyzer:
         setattr(
             bpy.types.Scene,
             prop,
-            bpy.props.BoolProperty(default=lint['default']))
+            bpy.props.BoolProperty(
+                default=lint['default'],
+                description=lint['definition']))
 
 
 def has_active_mesh(context):
