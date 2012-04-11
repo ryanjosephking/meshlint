@@ -1,7 +1,7 @@
 bl_info = {
     'name': 'MeshLint: Scrutinize Mesh Quality',
     'author': 'rking',
-    'version': (0, 8),
+    'version': (0, 9),
     'blender': (2, 6, 3),
     'location': 'Object Data properties > MeshLint',
     'description': 'Check a mesh for: Tris / Ngons / Nonmanifoldness / etc',
@@ -16,7 +16,7 @@ import time
 import re
 
 SUBPANEL_LABEL = 'MeshLint'
-
+COMPLAINT_TIMEOUT = 3 # seconds
 CHECKS = [
   {
     'symbol': 'tris',
@@ -174,7 +174,7 @@ def global_repeated_check(dummy):
 
 class MeshLintContinuousChecker():
     current_message = ''
-    message_displayed_at = 0
+    time_complained = 0
     previous_topology_counts = None
     previous_analysis = None
 
@@ -185,7 +185,7 @@ class MeshLintContinuousChecker():
         analyzer = MeshLintAnalyzer()
         now_counts = analyzer.topology_counts()
         previous_topology_counts = \
-            MeshLintContinuousChecker.previous_topology_counts
+            cls.previous_topology_counts
         if not None is previous_topology_counts:
             previous_data_name = previous_topology_counts['data'].name
         else:
@@ -196,23 +196,25 @@ class MeshLintContinuousChecker():
             if not previous_data_name == now_name:
                 before = MeshLintAnalyzer.none_analysis()
             analysis = analyzer.find_problems()
-            diff_msg = MeshLintContinuousChecker.diff_analyses(
-                MeshLintContinuousChecker.previous_analysis, analysis)
+            diff_msg = cls.diff_analyses(
+                cls.previous_analysis, analysis)
             if not None is diff_msg:
-                MeshLintContinuousChecker.current_message = diff_msg
-                MeshLintContinuousChecker.message_displayed_at = time.time()
-            MeshLintContinuousChecker.previous_topology_counts = now_counts
-            MeshLintContinuousChecker.previous_analysis = analysis
-        if 3 < time.time() - MeshLintContinuousChecker.message_displayed_at:
-            MeshLintContinuousChecker.current_message = ''
+                cls.announce(diff_msg)
+                cls.time_complained = time.time()
+            cls.previous_topology_counts = now_counts
+            cls.previous_analysis = analysis
+        if not None is cls.time_complained \
+                and COMPLAINT_TIMEOUT < time.time() - cls.time_complained:
+            cls.announce(None)
+            cls.time_complained = None
 
     @classmethod
     def diff_analyses(cls, before, after):
         if None is before:
             before = MeshLintAnalyzer.none_analysis()
         report_strings = []
-        dict_before = MeshLintContinuousChecker.make_labels_dict(before)
-        dict_now = MeshLintContinuousChecker.make_labels_dict(after)
+        dict_before = cls.make_labels_dict(before)
+        dict_now = cls.make_labels_dict(after)
         for check in CHECKS:
             check_name = check['label']
             if not check_name in dict_now.keys():
@@ -245,6 +247,17 @@ class MeshLintContinuousChecker():
             del new_val['lint']
             labels_dict[label] = new_val
         return labels_dict
+
+    @classmethod
+    def announce(cls, message):
+        for area in bpy.context.screen.areas:
+            if 'INFO' != area.type:
+                continue
+            if None is message:
+                area.header_text_set()
+            else:                   
+                area.header_text_set('MeshLint: ' + message)
+
 
 class MeshLintVitalizer(bpy.types.Operator):
     'Toggles the real-time execution of the checks'
@@ -307,16 +320,9 @@ class MeshLintControl(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        self.maybe_add_now_you_done_it_text(layout)
         self.add_main_buttons(layout)
         if 'EDIT_MESH' == bpy.context.mode:
             self.add_rows(layout, context)
-
-    def maybe_add_now_you_done_it_text(self, layout):
-        col = layout.column()
-        msg = MeshLintContinuousChecker.current_message
-        if not '' == msg:
-            col.label(msg, icon='ERROR')
 
     def add_main_buttons(self, layout):
         split = layout.split()
