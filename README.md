@@ -4,7 +4,8 @@ MeshLint
 A Blender Addon to help you keep your meshes clean and lint-free, like a
 spell-checker for your meshes.
 
-![Results with a Messed up Mesh](meshlint/raw/master/img/messed-up-mesh.png "Failure.")
+![Results with a Triangulated Mesh](meshlint/raw/master/img/messed-up-mesh.png
+"Found some Triangles.")
 
 Can check for:
 
