@@ -1,3 +1,15 @@
+# FIXME - Known bugs:
+#  - Selection is not undo-able. Add bl_options = {'REGISTER,'UNDO'} ?
+#  - User fixes name, it still complains.
+#  - Exempt mirror-plane verts.
+#  - Check pathologicalish cases where the object is not a mesh, multiple
+#      objects are selected, etc.
+#  - Track down any display update issues that might remaind. See /get it done
+#  - Check this comment, re properties:
+        # TODO - blank previous_analysis on_change (fixes unexpected behavior
+        # where checking/unchecking things does not update the counts/icons)
+#  - ..not sure what else.
+
 bl_info = {
     'name': 'MeshLint: Scrutinize Mesh Quality',
     'author': 'rking',
@@ -17,57 +29,14 @@ import re
 
 SUBPANEL_LABEL = 'MeshLint'
 COMPLAINT_TIMEOUT = 3 # seconds
-CHECKS = [
-  {
-    'symbol': 'tris',
-    'label': 'Tris',
-    'default': True
-  },
-  {
-    'symbol': 'ngons',
-    'label': 'Ngons',
-    'default': True
-  },
-  {
-    'symbol': 'interior_faces',
-    'label': 'Interior Faces',
-    'default': True
-  },
-  {
-    'symbol': 'nonmanifold',
-    'label': 'Nonmanifold Elements',
-    'default': True
-  },
-  {
-    'symbol': 'sixplus_poles',
-    'label': '6+-edge Poles',
-    'default': False
-  },
-
-  # Plus 'Default Name'
-
-  # [Your great new idea here] -> Tell me about it: rking@panoptic.com
-]
-
 ELEM_TYPES = [ 'verts', 'edges', 'faces' ]
 
 N_A_STR = '(N/A - disabled)'
 TBD_STR = '...'
 
-for lint in CHECKS:
-    sym = lint['symbol']
-    lint['count'] = TBD_STR
-    prop = 'meshlint_check_' + sym
-    lint['check_prop'] = prop
-    'meshlint_check_' + sym
-    # TODO - blank previous_analysis on_change (fixes unexpected behavior
-    # where checking/unchecking things does not update the counts/icons)
-    setattr(
-        bpy.types.Scene,
-        prop,
-        bpy.props.BoolProperty(default=lint['default']))
-
 class MeshLintAnalyzer:
+    CHECKS = []
+
     def __init__(self):
         self.obj = bpy.context.active_object
         self.ensure_edit_mode()
@@ -75,7 +44,7 @@ class MeshLintAnalyzer:
 
     def find_problems(self):
         analysis = [] 
-        for lint in CHECKS:
+        for lint in MeshLintAnalyzer.CHECKS:
             sym = lint['symbol']
             should_check = getattr(bpy.context.scene, lint['check_prop'])
             if not should_check:
@@ -96,7 +65,7 @@ class MeshLintAnalyzer:
     @classmethod
     def none_analysis(cls):
         analysis = []
-        for lint in CHECKS:
+        for lint in cls.CHECKS:
             row = { elemtype: [] for elemtype in ELEM_TYPES }
             row['lint'] = lint
             analysis.append(row)
@@ -106,6 +75,35 @@ class MeshLintAnalyzer:
         if 'EDIT_MESH' != bpy.context.mode:
             bpy.ops.object.editmode_toggle()
 
+    CHECKS.append({
+        'symbol': 'tris',
+        'label': 'Tris',
+        'default': True
+    })
+    def check_tris(self):
+        bad = { 'faces': [] }
+        for f in self.b.faces:
+            if 3 == len(f.verts):
+                bad['faces'].append(f.index)
+        return bad
+
+    CHECKS.append({
+        'symbol': 'ngons',
+        'label': 'Ngons',
+        'default': True
+    })
+    def check_ngons(self):
+        bad = { 'faces': [] }
+        for f in self.b.faces:
+            if 4 < len(f.verts):
+                bad['faces'].append(f.index)
+        return bad
+
+    CHECKS.append({
+        'symbol': 'nonmanifold',
+        'label': 'Nonmanifold Elements',
+        'default': True
+    })
     def check_nonmanifold(self):
         bad = {}
         for elemtype in 'verts', 'edges':
@@ -117,20 +115,11 @@ class MeshLintAnalyzer:
         # Plus: ...anybody wanna tackle Mirrors with an Object Offset?
         return bad
 
-    def check_tris(self):
-        bad = { 'faces': [] }
-        for f in self.b.faces:
-            if 3 == len(f.verts):
-                bad['faces'].append(f.index)
-        return bad
-
-    def check_ngons(self):
-        bad = { 'faces': [] }
-        for f in self.b.faces:
-            if 4 < len(f.verts):
-                bad['faces'].append(f.index)
-        return bad
-
+    CHECKS.append({
+        'symbol': 'interior_faces',
+        'label': 'Interior Faces',
+        'default': True
+    })
     def check_interior_faces(self): # translated from editmesh_select.c
         bad = { 'faces': [] }
         for f in self.b.faces:
@@ -138,12 +127,21 @@ class MeshLintAnalyzer:
                 bad['faces'].append(f.index)
         return bad
 
+    CHECKS.append({
+        'symbol': 'sixplus_poles',
+        'label': '6+-edge Poles',
+        'default': False
+    })
     def check_sixplus_poles(self):
         bad = { 'verts': [] }
         for v in self.b.verts:
             if 5 < len(v.link_edges):
                 bad['verts'].append(v.index)
         return bad
+
+    # [Your great new idea here] -> Tell me about it: rking@panoptic.com
+
+    # ...plus the 'Default Name' check.
 
     def enable_anything_select_mode(self):
         self.b.select_mode = {'VERT', 'EDGE', 'FACE'}
@@ -162,6 +160,17 @@ class MeshLintAnalyzer:
             'faces': len(self.b.faces),
             'edges': len(self.b.edges),
             'verts': len(self.b.verts) }
+
+    for lint in CHECKS:
+        sym = lint['symbol']
+        lint['count'] = TBD_STR
+        prop = 'meshlint_check_' + sym
+        lint['check_prop'] = prop
+        'meshlint_check_' + sym
+        setattr(
+            bpy.types.Scene,
+            prop,
+            bpy.props.BoolProperty(default=lint['default']))
 
 
 def has_active_mesh(context):
@@ -215,7 +224,7 @@ class MeshLintContinuousChecker():
         report_strings = []
         dict_before = cls.make_labels_dict(before)
         dict_now = cls.make_labels_dict(after)
-        for check in CHECKS:
+        for check in MeshLintAnalyzer.CHECKS:
             check_name = check['label']
             if not check_name in dict_now.keys():
                 continue
@@ -344,7 +353,7 @@ class MeshLintControl(bpy.types.Panel):
         active = context.active_object
         if not has_active_mesh(context):
             return
-        for lint in CHECKS:
+        for lint in MeshLintAnalyzer.CHECKS:
             count = lint['count']
             if count in (TBD_STR, N_A_STR):
                 label = str(count) + ' ' + lint['label']
