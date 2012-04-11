@@ -1,6 +1,4 @@
 # FIXME - Known bugs:
-#  - Selection is not undo-able. Add bl_options = {'REGISTER,'UNDO'} ?
-#  - User fixes name, it still complains.
 #  - Exempt mirror-plane verts.
 #  - Check pathologicalish cases where the object is not a mesh, multiple
 #      objects are selected, etc.
@@ -154,7 +152,6 @@ class MeshLintAnalyzer:
             bmseq[i].select = True
 
     def topology_counts(self):
-        # XXX - Is this protected so it only runs with meshes? I don't know
         data = self.obj.data
         return {
             'data': self.obj.data,
@@ -295,6 +292,7 @@ class MeshLintSelector(bpy.types.Operator):
     'Uncheck boxes below to prevent those checks from running'
     bl_idname = 'meshlint.select'
     bl_label = 'MeshLint Select'
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -419,7 +417,6 @@ def depluralize(**args):
 
 # Hrm. Why does it work for some Blender's but not others?
 try:
-
     import unittest
     import warnings
 
