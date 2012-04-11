@@ -1,12 +1,5 @@
-# FIXME - Known bugs:
+# TODO:
 #  - Exempt mirror-plane verts.
-#  - Check pathologicalish cases where the object is not a mesh, multiple
-#      objects are selected, etc.
-#  - Track down any display update issues that might remaind. See /get it done
-#  - Check this comment, re properties:
-        # TODO - blank previous_analysis on_change (fixes unexpected behavior
-        # where checking/unchecking things does not update the counts/icons)
-#  - ..not sure what else.
 
 bl_info = {
     'name': 'MeshLint: Like Spell-checking for your Meshes',
