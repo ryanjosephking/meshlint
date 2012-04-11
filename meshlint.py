@@ -11,7 +11,7 @@
 #  - ..not sure what else.
 
 bl_info = {
-    'name': 'MeshLint: Scrutinize Mesh Quality',
+    'name': 'MeshLint: Like Spell-checking for your Meshes',
     'author': 'rking',
     'version': (0, 9),
     'blender': (2, 6, 3),
@@ -33,6 +33,7 @@ ELEM_TYPES = [ 'verts', 'edges', 'faces' ]
 
 N_A_STR = '(N/A - disabled)'
 TBD_STR = '...'
+
 
 class MeshLintAnalyzer:
     CHECKS = []
@@ -177,9 +178,11 @@ def has_active_mesh(context):
     obj = context.active_object 
     return obj and 'MESH' == obj.type
 
+
 @bpy.app.handlers.persistent
 def global_repeated_check(dummy):
     MeshLintContinuousChecker.check()
+
 
 class MeshLintContinuousChecker():
     current_message = ''
