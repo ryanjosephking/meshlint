@@ -2,16 +2,16 @@
 #  - Exempt mirror-plane verts.
 
 bl_info = {
-    'name': 'MeshLint: Like Spell-checking for your Meshes',
-    'author': 'rking',
-    'version': (0, 9),
-    'blender': (2, 6, 3),
-    'location': 'Object Data properties > MeshLint',
-    'description': 'Check a mesh for: Tris / Ngons / Nonmanifoldness / etc',
-    'warning': '',
-    'wiki_url': '',
-    'tracker_url': '',
-    'category': 'Mesh' }
+    "name": "MeshLint: Like Spell-checking for your Meshes",
+    "author": "rking",
+    "version": (0, 9),
+    "blender": (2, 6, 3),
+    "location": "Object Data properties > MeshLint",
+    "description": "Check a mesh for: Tris / Ngons / Nonmanifoldness / etc",
+    "warning": "",
+    "wiki_url": "",
+    "tracker_url": "",
+    "category": "Mesh" }
 
 import bpy
 import bmesh
