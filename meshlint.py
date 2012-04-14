@@ -337,11 +337,6 @@ class MeshLintSelector(bpy.types.Operator):
             for elemtype in ELEM_TYPES:
                 indices = lint[elemtype]
                 analyzer.select_indices(elemtype, indices)
-        # TODO: Double-check this. I have the feeling it's already taken care
-        # of inside find_problems() --
-        # Record this so the first time the user hits "Continuous Check!" it
-        # doesn't spew out info they already knew:
-        MeshLintContinuousChecker.previous_analysis = analysis
         clean = analyzer.found_zero_problems() 
         if clean:
             analyzer.restore_previous_mode()
