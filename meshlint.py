@@ -23,24 +23,24 @@ try:
     import bmesh
     import time
     import re
-    
+
     SUBPANEL_LABEL = 'MeshLint'
     COMPLAINT_TIMEOUT = 3 # seconds
     ELEM_TYPES = [ 'verts', 'edges', 'faces' ]
-    
+
     N_A_STR = '(N/A - disabled)'
     TBD_STR = '...'
-    
-    
+
+
     class MeshLintAnalyzer:
         CHECKS = []
-    
+
         def __init__(self):
             self.obj = bpy.context.active_object
             self.ensure_edit_mode()
             self.b = bmesh.from_edit_mesh(self.obj.data)
             self.num_problems_found = None
-    
+
         def find_problems(self):
             analysis = [] 
             self.num_problems_found = 0
@@ -62,10 +62,10 @@ try:
                     self.num_problems_found += len(indices)
                 analysis.append(report)
             return analysis
-    
+
         def found_zero_problems(self):
             return 0 == self.num_problems_found
-    
+
         @classmethod
         def none_analysis(cls):
             analysis = []
@@ -74,17 +74,17 @@ try:
                 row['lint'] = lint
                 analysis.append(row)
             return analysis
-    
+
         def ensure_edit_mode(self):
             self.previous_mode = bpy.context.mode
             if 'EDIT_MESH' != bpy.context.mode:
                 bpy.ops.object.editmode_toggle()
-    
+
         def restore_previous_mode(self):
             if 'EDIT_MESH' != self.previous_mode:
                 bpy.ops.object.editmode_toggle()
             self.previous_mode = None
-    
+
         CHECKS.append({
             'symbol': 'tris',
             'label': 'Tris',
@@ -97,7 +97,7 @@ try:
                 if 3 == len(f.verts):
                     bad['faces'].append(f.index)
             return bad
-    
+
         CHECKS.append({
             'symbol': 'ngons',
             'label': 'Ngons',
@@ -110,7 +110,7 @@ try:
                 if 4 < len(f.verts):
                     bad['faces'].append(f.index)
             return bad
-    
+
         CHECKS.append({
             'symbol': 'nonmanifold',
             'label': 'Nonmanifold Elements',
@@ -127,7 +127,7 @@ try:
             # TODO: Exempt mirror-plane verts.
             # Plus: ...anybody wanna tackle Mirrors with an Object Offset?
             return bad
-    
+
         CHECKS.append({
             'symbol': 'interior_faces',
             'label': 'Interior Faces',
@@ -140,7 +140,7 @@ try:
                 if not any(3 > len(e.link_faces) for e in f.edges):
                     bad['faces'].append(f.index)
             return bad
-    
+
         CHECKS.append({
             'symbol': 'sixplus_poles',
             'label': '6+-edge Poles',
@@ -153,19 +153,19 @@ try:
                 if 5 < len(v.link_edges):
                     bad['verts'].append(v.index)
             return bad
-    
+
         # [Your great new idea here] -> Tell me about it: rking@panoptic.com
-    
+
         # ...plus the 'Default Name' check.
-    
+
         def enable_anything_select_mode(self):
             self.b.select_mode = {'VERT', 'EDGE', 'FACE'}
-    
+
         def select_indices(self, elemtype, indices):
             bmseq = getattr(self.b, elemtype)
             for i in indices:
                 bmseq[i].select = True
-    
+
         def topology_counts(self):
             data = self.obj.data
             return {
@@ -173,7 +173,7 @@ try:
                 'faces': len(self.b.faces),
                 'edges': len(self.b.edges),
                 'verts': len(self.b.verts) }
-    
+
         for lint in CHECKS:
             sym = lint['symbol']
             lint['count'] = TBD_STR
@@ -186,24 +186,24 @@ try:
                 bpy.props.BoolProperty(
                     default=lint['default'],
                     description=lint['definition']))
-    
-    
+
+
     def has_active_mesh(context):
         obj = context.active_object 
         return obj and 'MESH' == obj.type
-    
-    
+
+
     @bpy.app.handlers.persistent
     def global_repeated_check(dummy):
         MeshLintContinuousChecker.check()
-    
-    
+
+
     class MeshLintContinuousChecker():
         current_message = ''
         time_complained = 0
         previous_topology_counts = None
         previous_analysis = None
-    
+
         @classmethod
         def check(cls):
             if 'EDIT_MESH' != bpy.context.mode:
@@ -233,7 +233,7 @@ try:
                     and COMPLAINT_TIMEOUT < time.time() - cls.time_complained:
                 cls.announce(None)
                 cls.time_complained = None
-    
+
         @classmethod
         def diff_analyses(cls, before, after):
             if None is before:
@@ -262,7 +262,7 @@ try:
             if len(report_strings):
                 return 'Found ' + ', '.join(report_strings)
             return None
-    
+
         @classmethod
         def make_labels_dict(cls, analysis):
             if None is analysis:
@@ -274,7 +274,7 @@ try:
                 del new_val['lint']
                 labels_dict[label] = new_val
             return labels_dict
-    
+
         @classmethod
         def announce(cls, message):
             for area in bpy.context.screen.areas:
@@ -284,19 +284,19 @@ try:
                     area.header_text_set()
                 else:                   
                     area.header_text_set('MeshLint: ' + message)
-    
-    
+
+
     class MeshLintVitalizer(bpy.types.Operator):
         'Toggles the real-time execution of the checks'
         bl_idname = 'meshlint.live_toggle'
         bl_label = 'MeshLint Live Toggle'
-    
+
         is_live = False
-    
+
         @classmethod
         def poll(cls, context):
             return has_active_mesh(context) and 'EDIT_MESH' == bpy.context.mode
-    
+
         def execute(self, context):
             if MeshLintVitalizer.is_live:
                 bpy.app.handlers.scene_update_post.remove(global_repeated_check)
@@ -305,22 +305,22 @@ try:
                 bpy.app.handlers.scene_update_post.append(global_repeated_check)
                 MeshLintVitalizer.is_live = True
             return {'FINISHED'}
-    
-    
+
+
     def activate(obj):
         bpy.context.scene.objects.active = obj
-    
-    
+
+
     class MeshLintSelector(bpy.types.Operator):
         'Uncheck boxes below to prevent those checks from running'
         bl_idname = 'meshlint.select'
         bl_label = 'MeshLint Select'
         bl_options = {'REGISTER', 'UNDO'}
-    
+
         @classmethod
         def poll(cls, context):
             return has_active_mesh(context)
-    
+
         def execute(self, context):
             original_active = bpy.context.active_object
             for obj in bpy.context.selected_objects:
@@ -331,7 +331,7 @@ try:
                     return {'FINISHED'}
             activate(original_active)
             return {'FINISHED'}
-                    
+
         def active_object_passes(self):
             analyzer = MeshLintAnalyzer()
             analyzer.enable_anything_select_mode()
@@ -345,32 +345,32 @@ try:
             if clean:
                 analyzer.restore_previous_mode()
             return clean
-    
+
         def select_none(self):
             bpy.ops.mesh.select_all(action='DESELECT')
-                    
-    
+
+
     class MeshLintControl(bpy.types.Panel):
         bl_space_type = 'PROPERTIES'
         bl_region_type = 'WINDOW'
         bl_context = 'data'
         bl_label = SUBPANEL_LABEL
-    
+
         @classmethod
         def poll(cls, context):
             return has_active_mesh(context)
-    
+
         def draw(self, context):
             layout = self.layout
             self.add_main_buttons(layout)
             self.add_rows(layout, context)
-    
+
         def add_main_buttons(self, layout):
             split = layout.split()
             left = split.column()
             left.operator(
                 'meshlint.select', text='Select Lint', icon='EDITMODE_HLT')
-    
+
             right = split.column()
             if MeshLintVitalizer.is_live:
                 live_label = 'Pause Checking...'
@@ -380,7 +380,7 @@ try:
                 play_pause = 'PLAY'
             right.operator(
                 'meshlint.live_toggle', text=live_label, icon=play_pause)
-    
+
         def add_rows(self, layout, context):
             col = layout.column()
             active = context.active_object
@@ -405,7 +405,7 @@ try:
             if MeshLintControl.has_bad_name(active.name):
                 col.row().label(
                     '...and "%s" is not a great name, BTW.' % active.name)
-    
+
         @classmethod
         def has_bad_name(self, name):
             default_names = [
@@ -436,20 +436,20 @@ try:
             ]
             pat = '(%s)\.?\d*$' % '|'.join(default_names)
             return not None is re.match(pat, name)
-    
-    
+
+
     def depluralize(**args):
         if 1 == args['count']:
             return args['string'].rstrip('s')
         else:
             return args['string']
-               
-    
+
+
     # Hrm. Why does it work for some Blender's but not others?
     try:
         import unittest
         import warnings
-    
+
         class TestControl(unittest.TestCase):
             def test_bad_names(self):
                 for bad in [ 'Cube', 'Cube.001', 'Sphere.123' ]:
@@ -460,7 +460,7 @@ try:
                     self.assertEqual(
                         False, MeshLintControl.has_bad_name(ok),
                         "OK name: %s" % ok)
-    
+
         class TestUtilities(unittest.TestCase):
             def test_depluralize(self):
                 self.assertEqual(
@@ -469,8 +469,8 @@ try:
                 self.assertEqual(
                     'foos',
                     depluralize(count=2, string='foos'))
-    
-    
+
+
         class TestAnalysis(unittest.TestCase):
             def test_make_labels_dict(self):
                 self.assertEqual(
@@ -492,7 +492,7 @@ try:
                     {},
                     MeshLintContinuousChecker.make_labels_dict(None),
                     'Handles "None" OK.')
-    
+
             def test_comparison(self):
                 self.assertEqual(
                     None,
@@ -554,18 +554,18 @@ try:
                               'verts': [], 'edges': [2,3,4,5], 'faces': [], },
                         ]),
                     'User picked a different set of checks since last run.')
-    
+
         class QuietOnSuccessTestresult(unittest.TextTestResult):
             def startTest(self, test):
                 pass
-    
+
             def addSuccess(self, test):
                 pass
-    
-    
+
+
         class QuietTestRunner(unittest.TextTestRunner):
             resultclass = QuietOnSuccessTestresult
-    
+
             # Ugh. I really shouldn't have to include this much code, but they
             # left it so unrefactored I don't know what else to do. My other
             # option is to override the stream and substitute out the success
@@ -604,7 +604,7 @@ try:
                 timeTaken = stopTime - startTime
                 result.printErrors()
                 run = result.testsRun
-    
+
                 expectedFails = unexpectedSuccesses = skipped = 0
                 try:
                     results = map(len, (result.expectedFailures,
@@ -614,7 +614,7 @@ try:
                     pass
                 else:
                     expectedFails, unexpectedSuccesses, skipped = results
-    
+
                 infos = []
                 if not result.wasSuccessful():
                     self.stream.write("FAILED")
@@ -631,33 +631,33 @@ try:
                     infos.append(
                         "unexpected successes=%d" % unexpectedSuccesses)
                 return result
-    
+
         if __name__ == '__main__':
             unittest.main(
                 testRunner=QuietTestRunner,
                 argv=['dummy'],
                 exit=False,
                 verbosity=0)
-    
+
     except ImportError:
         print(
             "MeshLint complains over missing unittest module.", """
             No harm, but it is odd. If you want to send a message to
             rking@panoptic.com describing your system, he'd like to track down
             this condition.""")
-    
-    
+
+
     def register():
         bpy.utils.register_module(__name__)
-    
-    
+
+
     def unregister():
         bpy.utils.unregister_module(__name__)
-    
-    
+
+
     if __name__ == '__main__':
         register()
-    
+
 except:
     # OK, I totally don't get why this is necessary. But otherwise I am not
     # seeing error text. Causes the extra indent over all above code. =(
