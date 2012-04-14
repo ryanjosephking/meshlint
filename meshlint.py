@@ -1,5 +1,8 @@
 # TODO:
 #  - Exempt mirror-plane verts.
+#  - Check for intersected faces??
+#   - Would probably be O(n^m) or something.
+#   - Would need to check the post-modified mesh (e.g., Armature-deformed)
 
 bl_info = {
     "name": "MeshLint: Like Spell-checking for your Meshes",
@@ -33,9 +36,11 @@ class MeshLintAnalyzer:
         self.obj = bpy.context.active_object
         self.ensure_edit_mode()
         self.b = bmesh.from_edit_mesh(self.obj.data)
+        self.num_problems_found = None
 
     def find_problems(self):
         analysis = [] 
+        self.num_problems_found = 0
         for lint in MeshLintAnalyzer.CHECKS:
             sym = lint['symbol']
             should_check = getattr(bpy.context.scene, lint['check_prop'])
@@ -51,8 +56,12 @@ class MeshLintAnalyzer:
                 indices = bad.get(elemtype, [])
                 report[elemtype] = indices
                 lint['count'] += len(indices)
+                self.num_problems_found += len(indices)
             analysis.append(report)
         return analysis
+
+    def found_zero_problems(self):
+        return 0 == self.num_problems_found
 
     @classmethod
     def none_analysis(cls):
@@ -64,8 +73,14 @@ class MeshLintAnalyzer:
         return analysis
 
     def ensure_edit_mode(self):
+        self.previous_mode = bpy.context.mode
         if 'EDIT_MESH' != bpy.context.mode:
             bpy.ops.object.editmode_toggle()
+
+    def restore_previous_mode(self):
+        if 'EDIT_MESH' != self.previous_mode:
+            bpy.ops.object.editmode_toggle()
+        self.previous_mode = None
 
     CHECKS.append({
         'symbol': 'tris',
@@ -287,6 +302,11 @@ class MeshLintVitalizer(bpy.types.Operator):
             MeshLintVitalizer.is_live = True
         return {'FINISHED'}
 
+
+def activate(obj):
+    bpy.context.scene.objects.active = obj
+
+
 class MeshLintSelector(bpy.types.Operator):
     'Uncheck boxes below to prevent those checks from running'
     bl_idname = 'meshlint.select'
@@ -298,6 +318,17 @@ class MeshLintSelector(bpy.types.Operator):
         return has_active_mesh(context)
 
     def execute(self, context):
+        original_active = bpy.context.active_object
+        for obj in bpy.context.selected_objects:
+            activate(obj)
+            good = self.active_object_passes()
+            if not good:
+                context.area.tag_redraw()
+                return {'FINISHED'}
+        activate(original_active)
+        return {'FINISHED'}
+                
+    def active_object_passes(self):
         analyzer = MeshLintAnalyzer()
         analyzer.enable_anything_select_mode()
         self.select_none()
@@ -306,11 +337,15 @@ class MeshLintSelector(bpy.types.Operator):
             for elemtype in ELEM_TYPES:
                 indices = lint[elemtype]
                 analyzer.select_indices(elemtype, indices)
-        context.area.tag_redraw()
+        # TODO: Double-check this. I have the feeling it's already taken care
+        # of inside find_problems() --
         # Record this so the first time the user hits "Continuous Check!" it
         # doesn't spew out info they already knew:
         MeshLintContinuousChecker.previous_analysis = analysis
-        return {'FINISHED'}
+        clean = analyzer.found_zero_problems() 
+        if clean:
+            analyzer.restore_previous_mode()
+        return clean
 
     def select_none(self):
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -329,8 +364,7 @@ class MeshLintControl(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         self.add_main_buttons(layout)
-        if 'EDIT_MESH' == bpy.context.mode:
-            self.add_rows(layout, context)
+        self.add_rows(layout, context)
 
     def add_main_buttons(self, layout):
         split = layout.split()
@@ -366,6 +400,7 @@ class MeshLintControl(bpy.types.Panel):
                 reward = 'ERROR'
             row = col.row()
             row.prop(context.scene, lint['check_prop'], text=label, icon=reward)
+        # TODO: Make this iterate over selected.
         if MeshLintControl.has_bad_name(active.name):
             col.row().label(
                 '...and "%s" is not a great name, BTW.' % active.name)
