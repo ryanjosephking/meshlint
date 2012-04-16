@@ -324,6 +324,8 @@ try:
         def execute(self, context):
             original_active = bpy.context.active_object
             for obj in bpy.context.selected_objects:
+                if 'MESH' != obj.type:
+                    continue
                 activate(obj)
                 good = self.active_object_passes()
                 if not good:
