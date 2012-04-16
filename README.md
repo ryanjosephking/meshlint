@@ -17,7 +17,7 @@ Can check for:
      only true for a face if absolutely none of its edges are connected to <=
      2 faces.
  - 6+-Poles: Verts with 6 or more edges (check disabled by default, because
-   some mechanical meshes legitimately have this).
+   some meshes legitimately have these).
  - ...can you think of more? We'll add them!
 
 So if you click `Select Lint`, in Object or Edit Modes, it will set your
@@ -34,10 +34,32 @@ good for cases where you think you won't be creating any new problem geometry.
 Whenever something goes wrong, the Info Bar at the top will display a message
 describing what MeshLint found. Also, you will notice the counts are updated.
 
+Getting
+-------
+
+Best way is to:
+
+    git clone git@github.com:ryanjosephking/meshlint.git
+
+That way, you can `git pull` later on and it will automatically refresh to the
+latest (theoretically-)good version.
+
+But I realize that not everyone has `git` or an operating system capable of
+symlinking.
+
+So, for those that can't: You can simply download the
+[meshlint.py](https://raw.github.com/ryanjosephking/meshlint/master/meshlint.py)
+script directly. (And re-visit that URL for the newest version, later on.)
+
 Installing
 ----------
 
-To install...
+The super-awesome way is to directly symlink `meshlint.py` into your [Blender
+Addons
+Dir](http://wiki.blender.org/index.php/Doc:2.6/Manual/Introduction/Installing_Blender/DirectoryLayout).
+The advantage is that the previous section's `git pull` will download the
+newest version automatically. But not everyone can be expected to be
+superawesome all the time, so continue on:
 
 ![Installing Addon](meshlint/raw/master/img/install-addon.png "`Install Addon...` screen.")
 
