@@ -109,5 +109,5 @@ Thanks
   and Beta testing.
 - endikos / William Knechtel - For also being an idea guy and tester, and for
   being a great Brother in the Lord, anyway.
-- lsfmt - For being a premeir Beta tester, complete with a UI improvement
-  mockup, and also for providing the hardware that was used to write it. (!)
+- lsfmt - For being a premeir Beta tester, complete with a [UI improvement
+  mockup](raw/master/img/lsmft.png "Likes Sending Me Fine Templates"), and also for providing the hardware that was used to write it. (!)
