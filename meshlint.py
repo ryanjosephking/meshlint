@@ -386,6 +386,7 @@ try:
             active = context.active_object
             if not has_active_mesh(context):
                 return
+            total_problems = 0
             for lint in MeshLintAnalyzer.CHECKS:
                 count = lint['count']
                 if count in (TBD_STR, N_A_STR):
@@ -395,19 +396,43 @@ try:
                     label = 'No %s!' % lint['label']
                     reward = 'SOLO_ON'
                 else:
+                    total_problems += count
                     label = str(count) + 'x ' + lint['label']
                     label = depluralize(count=count, string=label)
                     reward = 'ERROR'
                 row = col.row()
                 row.prop(
                     context.scene, lint['check_prop'], text=label, icon=reward)
-            # TODO: Make this iterate over selected.
-            if MeshLintControl.has_bad_name(active.name):
-                col.row().label(
-                    '...and "%s" is not a great name, BTW.' % active.name)
+            name_crits = MeshLintControl.build_naming_criticism(
+                            bpy.context.selected_objects, total_problems)
+            for crit in name_crits:
+                col.row().label(crit)
 
         @classmethod
-        def has_bad_name(self, name):
+        def build_naming_criticism(cls, objects, total_problems):
+            if 0 == total_problems:
+                conjunction = 'but'
+                btw = ''
+            else:
+                conjunction = 'and'
+                btw = ', BTW'
+            already_explained = False
+            afterword = ' is not a great name%s.' % btw
+            criticisms = []
+            for obj in objects:
+                if MeshLintControl.is_bad_name(obj.name):
+                    complaint = '...%s "%s"%s' % (
+                        conjunction, obj.name, afterword)
+                    criticisms.append(complaint)
+                    if not already_explained:
+                        already_explained = True
+                        conjunction = 'nor is'
+                        afterword = '.'
+            return criticisms
+
+
+        @classmethod
+        def is_bad_name(self, name):
             default_names = [
                 'BezierCircle',
                 'BezierCurve',
@@ -454,11 +479,11 @@ try:
             def test_bad_names(self):
                 for bad in [ 'Cube', 'Cube.001', 'Sphere.123' ]:
                     self.assertEqual(
-                        True, MeshLintControl.has_bad_name(bad),
+                        True, MeshLintControl.is_bad_name(bad),
                         "Bad name: %s" % bad)
                 for ok in [ 'Whatever', 'NumbersOkToo.001' ]:
                     self.assertEqual(
-                        False, MeshLintControl.has_bad_name(ok),
+                        False, MeshLintControl.is_bad_name(ok),
                         "OK name: %s" % ok)
 
         class TestUtilities(unittest.TestCase):
@@ -554,8 +579,45 @@ try:
                               'verts': [], 'edges': [2,3,4,5], 'faces': [], },
                         ]),
                     'User picked a different set of checks since last run.')
+        
 
-        class QuietOnSuccessTestresult(unittest.TextTestResult):
+        class MockBlenderObject:
+            def __init__(self, name):
+                self.name = name
+
+
+        class TestUI(unittest.TestCase):
+            def test_name_complaints(self):
+                f = MeshLintControl.build_naming_criticism
+                self.assertEqual([], f([], 0), 'Nothing selected')
+                x = MockBlenderObject('lsmft')
+                self.assertEqual(
+                    [],
+                    f([MockBlenderObject('lsmft')], 0),
+                    'Ok name')
+                self.assertEqual(
+                    ['...but "Cube" is not a great name.'],
+                    f([MockBlenderObject('Cube')], 0),
+                    'Bad name, otherwise problem-free.')
+                self.assertEqual(
+                    [],
+                    f([MockBlenderObject('Hassenfrass')], 12),
+                    'Good name, but with problems.')
+                self.assertEqual(
+                    ['...and "Cube" is not a great name, BTW.'],
+                    f([MockBlenderObject('Cube')], 23),
+                    'Bad name, and problems, too.')
+                self.assertEqual(
+                    [
+                        '...but "Sphere" is not a great name.',
+                        '...nor is "Cube".'
+                    ],
+                    f([
+                        MockBlenderObject('Sphere'),
+                        MockBlenderObject('Cube') ], 0),
+                    'Two bad names.')
+
+        class QuietOnSuccessTestResult(unittest.TextTestResult):
             def startTest(self, test):
                 pass
 
@@ -564,7 +626,7 @@ try:
 
 
         class QuietTestRunner(unittest.TextTestRunner):
-            resultclass = QuietOnSuccessTestresult
+            resultclass = QuietOnSuccessTestResult
 
             # Ugh. I really shouldn't have to include this much code, but they
             # left it so unrefactored I don't know what else to do. My other
