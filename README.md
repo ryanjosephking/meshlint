@@ -34,6 +34,13 @@ good for cases where you think you won't be creating any new problem geometry.
 Whenever something goes wrong, the Info Bar at the top will display a message
 describing what MeshLint found. Also, you will notice the counts are updated.
 
+Furthermore, it works on the whole selection (but starting with the Active
+Object). So you can quickly check your entire scene with `a` to Select All and
+then click `Select Lint`.
+
+While it is at it, it will make snarky comments about any names you didn't
+change from the default.
+
 Getting
 -------
 
@@ -101,8 +108,7 @@ Thanks
 
 - taniwha / Bill Currie - For being part of the original idea and for Alpha
   and Beta testing.
-
 - endikos / William Knechtel - For also being an idea guy and tester, and for
   being a great Brother in the Lord, anyway.
-- lsfmt - For trying to install it one time, but also for providing the
-  hardware that was used to write it. (!)
+- lsfmt - For being a premeir Beta tester, complete with a UI improvement
+  mockup, and also for providing the hardware that was used to write it. (!)
