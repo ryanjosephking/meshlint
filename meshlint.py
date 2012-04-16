@@ -363,7 +363,8 @@ try:
         def draw(self, context):
             layout = self.layout
             self.add_main_buttons(layout)
-            self.add_rows(layout, context)
+            self.add_criticism(layout, context)
+            self.add_toggle_buttons(layout, context)
 
         def add_main_buttons(self, layout):
             split = layout.split()
@@ -381,7 +382,7 @@ try:
             right.operator(
                 'meshlint.live_toggle', text=live_label, icon=play_pause)
 
-        def add_rows(self, layout, context):
+        def add_criticism(self, layout, context):
             col = layout.column()
             active = context.active_object
             if not has_active_mesh(context):
@@ -400,13 +401,24 @@ try:
                     label = str(count) + 'x ' + lint['label']
                     label = depluralize(count=count, string=label)
                     reward = 'ERROR'
-                row = col.row()
-                row.prop(
-                    context.scene, lint['check_prop'], text=label, icon=reward)
+                col.row().label(text=label, icon=reward)
             name_crits = MeshLintControl.build_naming_criticism(
                             bpy.context.selected_objects, total_problems)
             for crit in name_crits:
                 col.row().label(crit)
+
+        def add_toggle_buttons(self, layout, context):
+            col = layout.column()
+            col.row().label('Toggle:')
+            for lint in MeshLintAnalyzer.CHECKS:
+                prop_name = lint['check_prop']
+                is_enabled = getattr(context.scene, prop_name)
+                if is_enabled:
+                    prefix = 'Check '
+                else:
+                    prefix = "Don't check "
+                label = prefix + lint['label']
+                col.row().prop(context.scene, prop_name, text=label)
 
         @classmethod
         def build_naming_criticism(cls, objects, total_problems):
