@@ -1,5 +1,5 @@
 # TODO:
-#  - Exempt mirror-plane verts.
+#  - Exempt mirror-plane verts. You should not get penalized for them.
 #  - Check for intersected faces??
 #   - Would probably be O(n^m) or something.
 #   - Would need to check the post-modified mesh (e.g., Armature-deformed)
@@ -23,6 +23,7 @@ try:
     import bmesh
     import time
     import re
+    from mathutils import Vector
 
     SUBPANEL_LABEL = 'MeshLint'
     COMPLAINT_TIMEOUT = 3 # seconds
@@ -404,7 +405,7 @@ try:
                     label = depluralize(count=count, string=label)
                     reward = 'ERROR'
                 col.row().label(text=label, icon=reward)
-            name_crits = MeshLintControl.build_naming_criticism(
+            name_crits = MeshLintControl.build_object_criticisms(
                             bpy.context.selected_objects, total_problems)
             for crit in name_crits:
                 col.row().label(crit)
@@ -423,30 +424,31 @@ try:
                 col.row().prop(context.scene, prop_name, text=label)
 
         @classmethod
-        def build_naming_criticism(cls, objects, total_problems):
-            if 0 == total_problems:
-                conjunction = 'but'
-                btw = ''
-            else:
-                conjunction = 'and'
-                btw = ', BTW'
-            already_explained = False
-            afterword = ' is not a great name%s.' % btw
+        def build_object_criticisms(cls, objects, total_problems):
+            already_complained = total_problems > 0
             criticisms = []
+            def add_crit(crit):
+                if already_complained:
+                    conjunction = 'and also'
+                else:
+                    conjunction = 'but'
+                criticisms.append('...%s "%s" %s.' % (
+                    conjunction, obj.name, crit))
             for obj in objects:
+                if MeshLintControl.has_unapplied_scale(obj.scale):
+                    add_crit('has an unapplied scale')
+                    already_complained = True
                 if MeshLintControl.is_bad_name(obj.name):
-                    complaint = '...%s "%s"%s' % (
-                        conjunction, obj.name, afterword)
-                    criticisms.append(complaint)
-                    if not already_explained:
-                        already_explained = True
-                        conjunction = 'nor is'
-                        afterword = '.'
+                    add_crit('is not a great name')
+                    already_complained = True
             return criticisms
 
+        @classmethod
+        def has_unapplied_scale(cls, scale):
+            return 3 != len([c for c in scale if c == 1.0])
 
         @classmethod
-        def is_bad_name(self, name):
+        def is_bad_name(cls, name):
             default_names = [
                 'BezierCircle',
                 'BezierCurve',
@@ -490,6 +492,15 @@ try:
         import warnings
 
         class TestControl(unittest.TestCase):
+            def test_scale_application(self):
+                for bad in [ [0,0,0], [1,2,3], [1,1,1.1] ]:
+                    self.assertEqual(
+                        True, MeshLintControl.has_unapplied_scale(bad),
+                        "Unapplied scale: %s" % bad)
+                self.assertEqual(
+                    False, MeshLintControl.has_unapplied_scale([1,1,1]),
+                    "Applied scale (1,1,1)")
+            
             def test_bad_names(self):
                 for bad in [ 'Cube', 'Cube.001', 'Sphere.123' ]:
                     self.assertEqual(
@@ -499,6 +510,7 @@ try:
                     self.assertEqual(
                         False, MeshLintControl.is_bad_name(ok),
                         "OK name: %s" % ok)
+
 
         class TestUtilities(unittest.TestCase):
             def test_depluralize(self):
@@ -596,15 +608,15 @@ try:
         
 
         class MockBlenderObject:
-            def __init__(self, name):
+            def __init__(self, name, scale=Vector([1,1,1])):
                 self.name = name
+                self.scale = scale
 
 
         class TestUI(unittest.TestCase):
-            def test_name_complaints(self):
-                f = MeshLintControl.build_naming_criticism
+            def test_complaints(self):
+                f = MeshLintControl.build_object_criticisms
                 self.assertEqual([], f([], 0), 'Nothing selected')
-                x = MockBlenderObject('lsmft')
                 self.assertEqual(
                     [],
                     f([MockBlenderObject('lsmft')], 0),
@@ -618,18 +630,25 @@ try:
                     f([MockBlenderObject('Hassenfrass')], 12),
                     'Good name, but with problems.')
                 self.assertEqual(
-                    ['...and "Cube" is not a great name, BTW.'],
+                    ['...and also "Cube" is not a great name.'],
                     f([MockBlenderObject('Cube')], 23),
                     'Bad name, and problems, too.')
                 self.assertEqual(
                     [
                         '...but "Sphere" is not a great name.',
-                        '...nor is "Cube".'
+                        '...and also "Cube" is not a great name.'
                     ],
                     f([
                         MockBlenderObject('Sphere'),
                         MockBlenderObject('Cube') ], 0),
                     'Two bad names.')
+
+                scaled = MockBlenderObject('Solartech', scale=Vector([.2,2,1])) 
+                self.assertEqual(
+                    [ '...but "Solartech" has an unapplied scale.' ],
+                    f([scaled], 0),
+                    'Only problem is unapplied scale.'
+                )
 
         class QuietOnSuccessTestResult(unittest.TextTestResult):
             def startTest(self, test):
