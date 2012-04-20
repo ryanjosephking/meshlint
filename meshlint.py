@@ -21,7 +21,7 @@ mkblenderwiki_info = {
     "license": "GPL",
     "py_download": "https://raw.github.com/ryanjosephking/meshlint/master/meshlint.py",
     "git_download": "https://github.com/ryanjosephking/meshlint.git",
-    "input_img_prefix": "raw/master/img/",
+    "input_img_prefix": "meshlint/raw/master/img/",
     "wiki_img_prefix": "Scripts-Modeling-MeshLint-"}
 
 # Look for the "seeing error text", below. Something is super-fishy, but this
