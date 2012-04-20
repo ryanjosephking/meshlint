@@ -424,11 +424,7 @@ try:
             for lint in MeshLintAnalyzer.CHECKS:
                 prop_name = lint['check_prop']
                 is_enabled = getattr(context.scene, prop_name)
-                if is_enabled:
-                    prefix = 'Check '
-                else:
-                    prefix = "Don't check "
-                label = prefix + lint['label']
+                label = 'Check ' + lint['label']
                 col.row().prop(context.scene, prop_name, text=label)
 
         @classmethod
