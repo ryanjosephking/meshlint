@@ -1,4 +1,4 @@
-README.html
+README.{mediawiki,html}
 .*.sw?
 img/*.blend?
 __pycache__
