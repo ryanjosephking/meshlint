@@ -45,6 +45,10 @@ Object). So you can quickly check your entire scene with `a` to Select All and
 then click `Select Lint`. The checker will stop on the first found bit of
 lint, and throw you into Edit Mode so you can see it.
 
+And finally, it now has a `Deselect all Lint-free Objects` button. This is a
+process improvement for the "whole scene" checks, allowing you to see a better
+overview.
+
 Getting
 -------
 
@@ -131,3 +135,5 @@ Thanks
   (!)
 - [moth3r](http://www.moth3r.com/) / Ivan Šantić - For being one of the most
   enthusiastic Blenderers I ever met, and for testing/feedback, too.
+- [encn](http://blenderartists.org/forum/member.php?102273-encn) - For the
+  idea about "Deselect all Lint-free Objects", plus others.
