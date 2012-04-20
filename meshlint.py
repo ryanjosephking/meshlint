@@ -453,7 +453,7 @@ try:
             layout.split().operator(
                 'meshlint.objects_deselect',
                 text='Deselect all Lint-free Objects',
-                icon='SCENE')
+                icon='UV_ISLANDSEL')
 
         def add_criticism(self, layout, context):
             col = layout.column()
