@@ -3,6 +3,21 @@
 #  - Check for intersected faces??
 #   - Would probably be O(n^m) or something.
 #   - Would need to check the post-modified mesh (e.g., Armature-deformed)
+#  - Coplanar check, especially good for Ngons.
+#  - Check Normal consistency? I've had several people request this, though I
+#    still feel like the Ctrl+n tool has problems solving it, so I am
+#    unconfident that I will be able to do as good or better. It is true,
+#    though, that you can simply allow the user to enable the check, and if it
+#    is acting wonky they can disable it.
+#  - Consider adding to the 'n' Properties Panel instead of Object Data. Or,
+#    perhaps, a user preference.
+#  - Add a "Deselect Lint-free" button that only shows up when multiple
+#    objects are selected. Would besically require addition of a
+#    "MeshLintDeselector" class that acts a lot like MeshLintSelector. Perhaps
+#    they should inherit from a base class.
+#  - Maybe add a "Skip to Next" option. So far at least 1 user has reported
+#    this. Personally, I think you should hit Tab and deselect the one you
+#    want to skip, but I haven't thought it through too far.
 
 bl_info = {
     "name": "MeshLint: Like Spell-checking for your Meshes",
@@ -41,17 +56,32 @@ try:
     TBD_STR = '...'
 
 
+    def ensure_edit_mode():
+        if 'EDIT_MESH' != bpy.context.mode:
+            bpy.ops.object.editmode_toggle()
+
+
+    def ensure_not_edit_mode():
+        if 'EDIT_MESH' == bpy.context.mode:
+            bpy.ops.object.editmode_toggle()
+
+
+    def has_active_mesh(context):
+        obj = context.active_object
+        return obj and 'MESH' == obj.type
+
+
     class MeshLintAnalyzer:
         CHECKS = []
 
         def __init__(self):
             self.obj = bpy.context.active_object
-            self.ensure_edit_mode()
+            ensure_edit_mode()
             self.b = bmesh.from_edit_mesh(self.obj.data)
             self.num_problems_found = None
 
         def find_problems(self):
-            analysis = [] 
+            analysis = []
             self.num_problems_found = 0
             for lint in MeshLintAnalyzer.CHECKS:
                 sym = lint['symbol']
@@ -83,16 +113,6 @@ try:
                 row['lint'] = lint
                 analysis.append(row)
             return analysis
-
-        def ensure_edit_mode(self):
-            self.previous_mode = bpy.context.mode
-            if 'EDIT_MESH' != bpy.context.mode:
-                bpy.ops.object.editmode_toggle()
-
-        def restore_previous_mode(self):
-            if 'EDIT_MESH' != self.previous_mode:
-                bpy.ops.object.editmode_toggle()
-            self.previous_mode = None
 
         CHECKS.append({
             'symbol': 'tris',
@@ -171,6 +191,9 @@ try:
             self.b.select_mode = {'VERT', 'EDGE', 'FACE'}
 
         def select_indices(self, elemtype, indices):
+            # XXX Actually, it's not so simple. You have to make sure major
+            # elements have their minor elements selected, too. Will comply.
+            # TODO find out if flushing is necessary.
             bmseq = getattr(self.b, elemtype)
             for i in indices:
                 bmseq[i].select = True
@@ -195,11 +218,6 @@ try:
                 bpy.props.BoolProperty(
                     default=lint['default'],
                     description=lint['definition']))
-
-
-    def has_active_mesh(context):
-        obj = context.active_object 
-        return obj and 'MESH' == obj.type
 
 
     @bpy.app.handlers.persistent
@@ -291,7 +309,7 @@ try:
                     continue
                 if None is message:
                     area.header_text_set()
-                else:                   
+                else:
                     area.header_text_set('MeshLint: ' + message)
 
 
@@ -320,29 +338,7 @@ try:
         bpy.context.scene.objects.active = obj
 
 
-    class MeshLintSelector(bpy.types.Operator):
-        'Uncheck boxes below to prevent those checks from running'
-        bl_idname = 'meshlint.select'
-        bl_label = 'MeshLint Select'
-        bl_options = {'REGISTER', 'UNDO'}
-
-        @classmethod
-        def poll(cls, context):
-            return has_active_mesh(context)
-
-        def execute(self, context):
-            original_active = bpy.context.active_object
-            for obj in bpy.context.selected_objects:
-                if 'MESH' != obj.type:
-                    continue
-                activate(obj)
-                good = self.active_object_passes()
-                if not good:
-                    context.area.tag_redraw()
-                    return {'FINISHED'}
-            activate(original_active)
-            return {'FINISHED'}
-
+    class MeshLintObjectLooper:
         def active_object_passes(self):
             analyzer = MeshLintAnalyzer()
             analyzer.enable_anything_select_mode()
@@ -352,14 +348,64 @@ try:
                 for elemtype in ELEM_TYPES:
                     indices = lint[elemtype]
                     analyzer.select_indices(elemtype, indices)
-            clean = analyzer.found_zero_problems() 
-            if clean:
-                analyzer.restore_previous_mode()
-            return clean
+            ensure_not_edit_mode()
+            return analyzer.found_zero_problems()
+
+        def execute(self, context):
+            self.original_active = bpy.context.active_object
+            original_mode = bpy.context.mode
+            self.troubled_meshes = []
+            for obj in bpy.context.selected_objects:
+                if 'MESH' != obj.type:
+                    continue
+                activate(obj)
+                good = self.active_object_passes()
+                if not good:
+                    self.troubled_meshes.append(obj)
+            priorities = [self.original_active] + self.troubled_meshes
+            for obj in priorities:
+                if obj.select:
+                    activate(obj)
+                    break
+            self.handle_troubled_meshes()
+            if 0 == len(self.troubled_meshes) and 'EDIT_MESH' != original_mode:
+                ensure_not_edit_mode()
+            context.area.tag_redraw()
+            return {'FINISHED'}
 
         def select_none(self):
             bpy.ops.mesh.select_all(action='DESELECT')
 
+    class MeshLintSelector(MeshLintObjectLooper, bpy.types.Operator):
+        'Uncheck boxes below to prevent those checks from running'
+        bl_idname = 'meshlint.select'
+        bl_label = 'MeshLint Select'
+        bl_options = {'REGISTER', 'UNDO'}
+
+        @classmethod
+        def poll(cls, context):
+            return has_active_mesh(context)
+
+        def handle_troubled_meshes(self):
+            pass
+
+    class MeshLintObjectDeselector(MeshLintObjectLooper, bpy.types.Operator):
+        'Uncheck boxes below to prevent those checks from running'
+        bl_idname = 'meshlint.objects_deselect'
+        bl_label = 'MeshLint Objects Deselect'
+        bl_options = {'REGISTER', 'UNDO'}
+
+        @classmethod
+        def poll(cls, context):
+            selected_meshses = [
+                o for o in bpy.context.selected_objects if o.type == 'MESH']
+            return 1 < len(selected_meshses)
+
+        def handle_troubled_meshes(self):
+            for obj in bpy.context.selected_objects:
+                if not obj in self.troubled_meshes:
+                    obj.select = False
+            # XXX do I need to set the counts to 0? I forget.
 
     class MeshLintControl(bpy.types.Panel):
         bl_space_type = 'PROPERTIES'
@@ -392,6 +438,11 @@ try:
                 play_pause = 'PLAY'
             right.operator(
                 'meshlint.live_toggle', text=live_label, icon=play_pause)
+            
+            layout.split().operator(
+                'meshlint.objects_deselect',
+                text='Deselect Lint-free',
+                icon='SCENE')
 
         def add_criticism(self, layout, context):
             col = layout.column()
@@ -504,7 +555,7 @@ try:
                 self.assertEqual(
                     False, MeshLintControl.has_unapplied_scale([1,1,1]),
                     "Applied scale (1,1,1)")
-            
+
             def test_bad_names(self):
                 for bad in [ 'Cube', 'Cube.001', 'Sphere.123' ]:
                     self.assertEqual(
@@ -591,7 +642,7 @@ try:
                         ]),
                     'Complex comparison of analyses')
                 self.assertEqual(
-                    'Found Tris: 1 vert, Ngons: 2 faces, ' + 
+                    'Found Tris: 1 vert, Ngons: 2 faces, ' +
                       'Nonmanifold Elements: 2 edges',
                     MeshLintContinuousChecker.diff_analyses(
                         [
@@ -609,7 +660,7 @@ try:
                               'verts': [], 'edges': [2,3,4,5], 'faces': [], },
                         ]),
                     'User picked a different set of checks since last run.')
-        
+
 
         class MockBlenderObject:
             def __init__(self, name, scale=Vector([1,1,1])):
@@ -647,7 +698,7 @@ try:
                         MockBlenderObject('Cube') ], 0),
                     'Two bad names.')
 
-                scaled = MockBlenderObject('Solartech', scale=Vector([.2,2,1])) 
+                scaled = MockBlenderObject('Solartech', scale=Vector([.2,2,1]))
                 self.assertEqual(
                     [ '...but "Solartech" has an unapplied scale.' ],
                     f([scaled], 0),
