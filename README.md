@@ -1,5 +1,4 @@
-MeshLint
-========
+![MeshLint Logo](raw/master/img/logo-suzanne.png "The default Monkey has 32 Tris, 42 Nonmanifold Elements, and 9 6+-Edge Poles.")
 
 A Blender Addon to help you keep your meshes clean and lint-free, like a
 spell-checker for your meshes.
