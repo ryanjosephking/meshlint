@@ -398,7 +398,7 @@ try:
         def poll(cls, context):
             selected_meshses = [
                 o for o in bpy.context.selected_objects if o.type == 'MESH']
-            return 1 < len(selected_meshses)
+            return 1 < len(selected_meshses) and not is_edit_mode()
 
         def handle_troubled_meshes(self):
             for obj in bpy.context.selected_objects:
@@ -440,7 +440,7 @@ try:
             
             layout.split().operator(
                 'meshlint.objects_deselect',
-                text='Deselect Lint-free',
+                text='Deselect all Lint-free Objects',
                 icon='SCENE')
 
         def add_criticism(self, layout, context):
