@@ -10,11 +10,19 @@ bl_info = {
     "version": (0, 9),
     "blender": (2, 6, 3),
     "location": "Object Data properties > MeshLint",
-    "description": "Check a mesh for: Tris / Ngons / Nonmanifoldness / etc",
+    "description": "Check objects for: Tris / Ngons / Nonmanifoldness / etc",
     "warning": "",
-    "wiki_url": "",
-    "tracker_url": "",
-    "category": "Mesh" }
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Modeling/MeshLint",
+    "tracker_url": "https://github.com/ryanjosephking/meshlint/issues",
+    "category": "Mesh"}
+
+# See https://github.com/ryanjosephking/meshlint/blob/master/mkblenderwiki_scriptinfo
+mkblenderwiki_info = {
+    "license": "GPL",
+    "py_download": "https://raw.github.com/ryanjosephking/meshlint/master/meshlint.py",
+    "git_download": "https://github.com/ryanjosephking/meshlint.git",
+    "input_img_prefix": "raw/master/img/",
+    "wiki_img_prefix": "Scripts-Modeling-MeshLint-"}
 
 # Look for the "seeing error text", below. Something is super-fishy, but this
 # is the workaround.
