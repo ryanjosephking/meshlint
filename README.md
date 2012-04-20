@@ -108,7 +108,7 @@ The Name
 --------
 
 It comes from programming tools that do similar things, but for code
-[Wikipedia Link](http://en.wikipedia.org/wiki/Lint\_(software\)). If you
+([Wikipedia Link](http://en.wikipedia.org/wiki/Lint\_(software\))). If you
 program, you might want to Google about and see if such a thing exists for
 your language. 
 
