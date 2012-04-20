@@ -540,6 +540,7 @@ try:
                 'SurfSphere',
                 'SurfTorus',
                 'Text',
+                'Torus',
             ]
             pat = '(%s)\.?\d*$' % '|'.join(default_names)
             return not None is re.match(pat, name)
