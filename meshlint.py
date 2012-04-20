@@ -338,7 +338,7 @@ try:
 
 
     class MeshLintObjectLooper:
-        def active_object_passes(self):
+        def examine_active_object(self):
             analyzer = MeshLintAnalyzer()
             analyzer.enable_anything_select_mode()
             self.select_none()
@@ -347,18 +347,18 @@ try:
                 for elemtype in ELEM_TYPES:
                     indices = lint[elemtype]
                     analyzer.select_indices(elemtype, indices)
-            ensure_not_edit_mode()
             return analyzer.found_zero_problems()
 
-        def execute(self, context):
+        def examine_all_selected_meshes(self):
             self.original_active = bpy.context.active_object
-            original_mode = bpy.context.mode
             self.troubled_meshes = []
-            for obj in bpy.context.selected_objects:
+            examinees = [self.original_active] + bpy.context.selected_objects
+            for obj in examinees:
                 if 'MESH' != obj.type:
                     continue
                 activate(obj)
-                good = self.active_object_passes()
+                good = self.examine_active_object()
+                ensure_not_edit_mode()
                 if not good:
                     self.troubled_meshes.append(obj)
             priorities = [self.original_active] + self.troubled_meshes
@@ -367,10 +367,7 @@ try:
                     activate(obj)
                     break
             self.handle_troubled_meshes()
-            if 0 == len(self.troubled_meshes) and 'EDIT_MESH' != original_mode:
-                ensure_not_edit_mode()
-            context.area.tag_redraw()
-            return {'FINISHED'}
+            bpy.context.area.tag_redraw()
 
         def select_none(self):
             bpy.ops.mesh.select_all(action='DESELECT')
@@ -385,6 +382,18 @@ try:
         def poll(cls, context):
             return has_active_mesh(context)
 
+        def execute(self, context):
+            original_mode = bpy.context.mode
+            if is_edit_mode():
+                self.examine_active_object()
+            else:
+                self.examine_all_selected_meshes()
+                if len(self.troubled_meshes):
+                    ensure_edit_mode()
+                elif 'EDIT_MESH' != original_mode:
+                    ensure_not_edit_mode()
+            return {'FINISHED'}
+        
         def handle_troubled_meshes(self):
             pass
 
@@ -400,11 +409,14 @@ try:
                 o for o in bpy.context.selected_objects if o.type == 'MESH']
             return 1 < len(selected_meshses) and not is_edit_mode()
 
+        def execute(self, context):
+            self.examine_all_selected_meshes()
+            return {'FINISHED'}
+
         def handle_troubled_meshes(self):
             for obj in bpy.context.selected_objects:
                 if not obj in self.troubled_meshes:
                     obj.select = False
-            # XXX do I need to set the counts to 0? I forget.
 
     class MeshLintControl(bpy.types.Panel):
         bl_space_type = 'PROPERTIES'
