@@ -16,6 +16,11 @@ Can check for:
      2 faces.
  - 6+-Poles: Verts with 6 or more edges (check disabled by default, because
    some meshes legitimately have these).
+ - Default Names (like `Cube.002`)
+ - Unapplied Scale (remember that `Ctrl+a,s` This causes so many problems I
+   don't even plan on making it an optional warning. If you have a selection
+   that includes an object with an Unapplied Scale, you'll hear about it from
+   MeshLint)
  - ...can you think of more? We'll add them!
 
 So if you click `Select Lint`, in Object or Edit Modes, it will set your
@@ -34,10 +39,8 @@ describing what MeshLint found. Also, you will notice the counts are updated.
 
 Furthermore, it works on the whole selection (but starting with the Active
 Object). So you can quickly check your entire scene with `a` to Select All and
-then click `Select Lint`.
-
-While it is at it, it will make snarky comments about any names you didn't
-change from the default.
+then click `Select Lint`. The checker will stop on the first found bit of
+lint, and throw you into Edit Mode so you can see it.
 
 Getting
 -------
@@ -108,5 +111,9 @@ Thanks
   and Beta testing.
 - endikos / William Knechtel - For also being an idea guy and tester, and for
   being a great Brother in the Lord, anyway.
-- lsmft / Kevin Wood - For being a premeir Beta tester, complete with a [UI improvement
-  mockup](raw/master/img/lsmft.png "Likes Sending Me Fine Templates"), and also for providing the hardware that was used to write it. (!)
+- lsmft / Kevin Wood - For being a premeir Beta tester, complete with a [UI
+  improvement mockup](raw/master/img/lsmft.png "Likes Sending Me Fine
+  Templates"), and also for providing the hardware that was used to write it.
+  (!)
+- moth3r / Ivan Šantić - For being one of the most enthusiastic Blenderers I
+  ever met, and for testing/feedback, too.
