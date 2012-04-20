@@ -95,12 +95,20 @@ When installed, it will add a new Subpanel to the bottom of the `Object Data`
 properties (the button in the `Properties Editor` that looks like the inverted
 triangle).
 
+The Name
+--------
+
+It comes from programming tools that do similar things, but for code
+[Wikipedia Link](http://en.wikipedia.org/wiki/Lint\_(software\)). If you
+program, you might want to Google about and see if such a thing exists for
+your language. 
+
 Going Further
 -------------
 
 We really want to make this a top-grade Addon. This will take a bit of
 debugging and brainstorming, both. There's a spot right below this text for a
-"Thanks", for Blenderers who give such feedback.
+"Thanks", for users who give such feedback.
 
 <rking@panoptic.com>
 
