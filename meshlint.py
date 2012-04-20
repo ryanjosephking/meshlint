@@ -11,10 +11,6 @@
 #    is acting wonky they can disable it.
 #  - Consider adding to the 'n' Properties Panel instead of Object Data. Or,
 #    perhaps, a user preference.
-#  - Add a "Deselect Lint-free" button that only shows up when multiple
-#    objects are selected. Would besically require addition of a
-#    "MeshLintDeselector" class that acts a lot like MeshLintSelector. Perhaps
-#    they should inherit from a base class.
 #  - Maybe add a "Skip to Next" option. So far at least 1 user has reported
 #    this. Personally, I think you should hit Tab and deselect the one you
 #    want to skip, but I haven't thought it through too far.
@@ -31,7 +27,7 @@ bl_info = {
     "tracker_url": "https://github.com/ryanjosephking/meshlint/issues",
     "category": "Mesh"}
 
-# See https://github.com/ryanjosephking/meshlint/blob/master/mkblenderwiki_scriptinfo
+# For the ./mkblenderwiki script
 mkblenderwiki_info = {
     "license": "GPL",
     "py_download": "https://raw.github.com/ryanjosephking/meshlint/master/meshlint.py",
@@ -56,13 +52,16 @@ try:
     TBD_STR = '...'
 
 
+    def is_edit_mode():
+        return 'EDIT_MESH' == bpy.context.mode
+
     def ensure_edit_mode():
-        if 'EDIT_MESH' != bpy.context.mode:
+        if not is_edit_mode():
             bpy.ops.object.editmode_toggle()
 
 
     def ensure_not_edit_mode():
-        if 'EDIT_MESH' == bpy.context.mode:
+        if is_edit_mode():
             bpy.ops.object.editmode_toggle()
 
 
@@ -233,7 +232,7 @@ try:
 
         @classmethod
         def check(cls):
-            if 'EDIT_MESH' != bpy.context.mode:
+            if not is_edit_mode():
                 return
             analyzer = MeshLintAnalyzer()
             now_counts = analyzer.topology_counts()
@@ -314,7 +313,7 @@ try:
 
 
     class MeshLintVitalizer(bpy.types.Operator):
-        'Toggles the real-time execution of the checks'
+        'Toggles the real-time execution of the checks (Edit Mode only)'
         bl_idname = 'meshlint.live_toggle'
         bl_label = 'MeshLint Live Toggle'
 
@@ -322,7 +321,7 @@ try:
 
         @classmethod
         def poll(cls, context):
-            return has_active_mesh(context) and 'EDIT_MESH' == bpy.context.mode
+            return has_active_mesh(context) and is_edit_mode()
 
         def execute(self, context):
             if MeshLintVitalizer.is_live:
@@ -390,7 +389,7 @@ try:
             pass
 
     class MeshLintObjectDeselector(MeshLintObjectLooper, bpy.types.Operator):
-        'Uncheck boxes below to prevent those checks from running'
+        'Uncheck boxes below to prevent those checks from running (Object Mode only)'
         bl_idname = 'meshlint.objects_deselect'
         bl_label = 'MeshLint Objects Deselect'
         bl_options = {'REGISTER', 'UNDO'}
