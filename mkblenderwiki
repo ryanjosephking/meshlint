@@ -1,0 +1,87 @@
+#!/usr/bin/env ruby
+# A thing to automatically spew out text for BlenderWiki. (depends on pandoc)
+
+require 'optparse'
+options = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: #{$0} [options]"
+  opts.on("-w", "--wiki-edit-url", "Output the Wiki link with Edit on") do |o|
+      options[:wiki_edit_url] = o
+  end
+end.parse!
+
+py_file_name = File.basename(Dir.pwd + '.py')
+txt = File.open(py_file_name).read
+txt =~ /bl_info\s*=\s*{(.*?)}/m or
+  raise "#{py_file_name} must have bl_info"
+info_txt = $1
+txt =~ /mkblenderwiki_info\s*=\s*{(.*?)}/m or
+  raise "#{py_file_name} must have mkblenderwiki_info"
+info_txt += $1
+info = {}
+info_txt.split(/\n/).each do |line|
+    info[$1] = $2 if line =~ /['"]([^"']+)["']:\s*['"(](.+)[)"'],?$/
+end
+
+class Hash
+    def demand_keys dict_name, keys
+        keys.each do |e|
+          raise "#{dict_name} must have \"#{e}\"" unless has_key? e
+        end
+    end
+end
+
+info.demand_keys 'bl_info', %w(
+  name
+  author
+  version
+  blender
+  location
+  description
+  tracker_url
+  category
+)
+info.demand_keys 'mkblenderwiki_info', %w(
+  license
+  py_download
+  git_download
+  input_img_prefix
+  wiki_img_prefix
+)
+
+%w(version blender).each do |e| info[e].gsub! /,\s*/, '.' end
+name, tooltip = info['name'].split ': '
+
+if options.has_key? :wiki_edit_url
+    url = info['wiki_url'].sub /index.php\//, "index.php?title="
+    url += '&action=edit'
+    puts url
+else
+    raise "No input file." unless ARGV.size
+    main_input_file = ARGV[0]
+    body = `pandoc -t mediawiki "#{main_input_file}"`
+    body.gsub! "Image:#{info['input_img_prefix']}",
+        "Image:#{info['wiki_img_prefix']}"
+    # a pandoc bug?:
+    body.gsub! '|caption ', '|'
+puts <<EOT
+{{ScriptInfo
+|name=#{name}
+|tooltip=#{tooltip}
+|menu=#{info['location']}
+|usage=#{info['description']}
+|version=#{info['version']}
+|blender=#{info['blender']}
+|category=#{info['category']}
+|author=#{info['author']}
+|license=#{info['license']}
+|exe=#{py_file_name}
+|distribution=Extern
+|note=
+|download=#{info['py_download']} or <tt>git clone #{info['git_download']}</tt>
+|link=
+}}
+
+#{body}
+EOT
+end
