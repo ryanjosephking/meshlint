@@ -18,7 +18,7 @@
 bl_info = {
     "name": "MeshLint: Like Spell-checking for your Meshes",
     "author": "rking",
-    "version": (0, 9),
+    "version": (1, 0),
     "blender": (2, 6, 3),
     "location": "Object Data properties > MeshLint",
     "description": "Check objects for: Tris / Ngons / Nonmanifoldness / etc",
@@ -190,12 +190,30 @@ try:
             self.b.select_mode = {'VERT', 'EDGE', 'FACE'}
 
         def select_indices(self, elemtype, indices):
-            # XXX Actually, it's not so simple. You have to make sure major
-            # elements have their minor elements selected, too. Will comply.
-            # TODO find out if flushing is necessary.
-            bmseq = getattr(self.b, elemtype)
             for i in indices:
-                bmseq[i].select = True
+                if 'verts' == elemtype:
+                    self.select_vert(i)
+                elif 'edges' == elemtype:
+                    self.select_edge(i)
+                elif 'faces' == elemtype:
+                    self.select_face(i)
+                else:
+                    print("MeshLint says: Huh?? → elemtype of %s." % elemtype)
+        
+        def select_vert(self, index):
+            self.b.verts[index].select = True
+
+        def select_edge(self, index):
+            edge = self.b.edges[index]
+            edge.select = True
+            for each in edge.verts:
+                self.select_vert(each.index)
+
+        def select_face(self, index):
+            face = self.b.faces[index]
+            face.select = True
+            for each in face.edges:
+                self.select_edge(each.index)
 
         def topology_counts(self):
             data = self.obj.data
